@@ -60,7 +60,7 @@ module fpga_chan(
 	 // Stone number
 	 input [1:0] CHN,
 	 // Common lines to other FPGA
-    output [15:0] ICX,
+    inout [15:0] ICX,
 	 // Configuration pins
     input INIT,
     input DOUT,
@@ -70,6 +70,10 @@ module fpga_chan(
     output [5:1] TP
     );
 
+	wire wb_clk;
+	wire wb_rst;
+`include "wb_intercon.vh"
+
 	wire [15:0] GTP_DAT_A;
 	wire [1:0] GTP_CHARISK_A;
 	wire [1:0] GTP_CHARISC_A;
@@ -77,14 +81,19 @@ module fpga_chan(
 	wire [1:0] GTP_NOTINTAB_A;
 	wire 		  GTP_ALIGNED_A;
 	wire [1:0] GTPCLKOUT;
-
-	assign SPISEL = 4'bzzzz;
-	assign SPICLK = 1'bz;
-	assign SPIDAT = 1'bz;
+	wire CLK125;
+	
 	assign ACNTR = 4'bzzzz;
-	assign TP = 4'bzzzz;
-	assign I2CCLK = 1'bz;
-	assign I2CDAT = 1'bz;
+	assign TP = {wb_m2s_spi_master_stb, wb_m2s_spi_master_cyc, wb_s2m_spi_master_ack,
+		wb_m2s_i2c_clk_stb, wb_m2s_adc_spi_stb};
+
+	assign wb_clk = CLK125;
+	assign wb_rst = 1'b0;
+	
+	wire I2CCLK_o;
+	wire I2CCLK_en;
+	wire I2CDAT_o;
+	wire I2CDAT_en;
 
     //--------------------------- The GTP Wrapper -----------------------------
     s6_gtpwizard_v1_11 #
@@ -102,23 +111,23 @@ module fpga_chan(
         //------------------------------- PLL Ports --------------------------------
         .TILE0_CLK00_IN                 (tile0_gtp0_refclk_i),
         .TILE0_CLK01_IN                 (tile0_gtp0_refclk_i),
-        .TILE0_GTPRESET0_IN             (),
-        .TILE0_GTPRESET1_IN             (),
+        .TILE0_GTPRESET0_IN             (1'b0),
+        .TILE0_GTPRESET1_IN             (1'b0),
         .TILE0_PLLLKDET0_OUT            (tile0_plllkdet_o),
         .TILE0_PLLLKDET1_OUT            (),
         .TILE0_RESETDONE0_OUT           (),
         .TILE0_RESETDONE1_OUT           (),
         //--------------------- Receive Ports - 8b10b Decoder ----------------------
-        .TILE0_RXCHARISCOMMA0_OUT       (GTP_CHARISC_A),
+        .TILE0_RXCHARISCOMMA0_OUT       (),
         .TILE0_RXCHARISCOMMA1_OUT       (),
         .TILE0_RXCHARISK0_OUT           (GTP_CHARISK_A),
         .TILE0_RXCHARISK1_OUT           (),
-        .TILE0_RXDISPERR0_OUT           (GTP_DISPERR_A),
+        .TILE0_RXDISPERR0_OUT           (),
         .TILE0_RXDISPERR1_OUT           (),
-        .TILE0_RXNOTINTABLE0_OUT        (GTP_NOTINTAB_A),
+        .TILE0_RXNOTINTABLE0_OUT        (),
         .TILE0_RXNOTINTABLE1_OUT        (),
         //------------- Receive Ports - Comma Detection and Alignment --------------
-        .TILE0_RXBYTEISALIGNED0_OUT     (GTP_ALIGNED_A),
+        .TILE0_RXBYTEISALIGNED0_OUT     (),
         .TILE0_RXBYTEISALIGNED1_OUT     (),
         .TILE0_RXCOMMADET0_OUT          (),
         .TILE0_RXCOMMADET1_OUT          (),
@@ -295,7 +304,7 @@ module fpga_chan(
       // CLKOUT0 - CLKOUT5: 1-bit (each) output: Clock outputs
       .CLKOUT0(CLK125_o),
       .CLKOUT1(CLK250_o),
-      .CLKOUT2(CLK100_o),
+      .CLKOUT2(),
       .CLKOUT3(),
       .CLKOUT4(),
       .CLKOUT5(),
@@ -313,20 +322,80 @@ module fpga_chan(
       .O(CLK125), // 1-bit output: Clock buffer output
       .I(CLK125_o)  // 1-bit input: Clock buffer input
    );
-   BUFG BUFG_inst100 (
-      .O(CLK), // 1-bit output: Clock buffer output
-      .I(CLK100_o)  // 1-bit input: Clock buffer input
-   );
 
-	genvar i;
-   generate
-      for (i=0; i < 4; i=i+1) 
-      begin: icxout
-         assign ICX[i*4] = (i == CHN) ? GTP_DISPERR_A[0]: 1'bz;
-         assign ICX[i*4+1] = (i == CHN) ? GTP_NOTINTAB_A[0]: 1'bz;
-         assign ICX[i*4+2] = (i == CHN) ? GTP_ALIGNED_A: 1'bz;
-         assign ICX[i*4+3] = (i == CHN) ? GTP_CHARISC_A[0]: 1'bz;
-      end
-   endgenerate
+	wire [3:0] empty_spi_cs;
 
+xspi_master  #(
+	.CLK_DIV (49),
+	.CLK_POL (1'b0)
+) adc_spi (
+	 .wb_rst    (wb_rst),
+    .wb_clk    (wb_clk),
+    .wb_we     (wb_m2s_adc_spi_we),
+    .wb_dat_i  (wb_m2s_adc_spi_dat[15:0]),
+    .wb_dat_o  (wb_s2m_adc_spi_dat[15:0]),
+    .wb_cyc		(wb_m2s_adc_spi_cyc),
+    .wb_stb		(wb_m2s_adc_spi_stb),
+    .wb_ack		(wb_s2m_adc_spi_ack),
+    .spi_dat   (SPIDAT),
+    .spi_clk   (SPICLK),
+    .spi_cs    ({empty_spi_cs, SPISEL}),
+    .wb_adr		(wb_m2s_adc_spi_adr[2])
+);
+	assign wb_s2m_adc_spi_err = 0;
+	assign wb_s2m_adc_spi_rty = 0;	
+	assign wb_s2m_adc_spi_dat[31:16] = 0;
+
+	assign wb_s2m_i2c_clk_err = 0;
+	assign wb_s2m_i2c_clk_rty = 0;
+
+  i2c_master_slave i2c_clk (
+		.wb_clk_i  (wb_clk), 
+		.wb_rst_i  (wb_rst),		// active high 
+		.arst_i    (1'b0), 		// active high
+		.wb_adr_i  (wb_m2s_i2c_clk_adr[4:2]), 
+		.wb_dat_i  (wb_m2s_i2c_clk_dat), 
+		.wb_dat_o  (wb_s2m_i2c_clk_dat),
+		.wb_we_i   (wb_m2s_i2c_clk_we),
+		.wb_stb_i  (wb_m2s_i2c_clk_stb),
+		.wb_cyc_i  (wb_m2s_i2c_clk_cyc), 
+		.wb_ack_o  (wb_s2m_i2c_clk_ack), 
+		.wb_inta_o (),
+		.scl_pad_i (I2CCLK), 
+		.scl_pad_o (I2CCLK_o), 
+		.scl_padoen_o (I2CCLK_en), 	// active low ?
+		.sda_pad_i (I2CDAT), 
+		.sda_pad_o (I2CDAT_o), 
+		.sda_padoen_o (I2CDAT_en)		// active low ?
+	);
+
+   assign I2CCLK = (!I2CCLK_en) ? (I2CCLK_o) : 1'bz;
+   assign I2CDAT = (!I2CDAT_en) ? (I2CDAT_o) : 1'bz;
+
+spi_wbmaster spi_master(
+    .CLK 		(wb_clk),
+    .SPICLK 	(ICX[4]),
+    .SPIDAT		(ICX[3]),
+    .SPIFR		(ICX[2]),
+    .STADDR		(CHN),
+    .wb_adr_o  (wb_m2s_spi_master_adr[14:2]),
+    .wb_dat_o  (wb_m2s_spi_master_dat[15:0]),
+    .wb_sel_o  (wb_m2s_spi_master_sel),
+    .wb_we_o	(wb_m2s_spi_master_we),
+    .wb_cyc_o  (wb_m2s_spi_master_cyc),
+    .wb_stb_o  (wb_m2s_spi_master_stb),
+    .wb_cti_o  (wb_m2s_spi_master_cti),
+    .wb_bte_o  (wb_m2s_spi_master_bte),
+    .wb_dat_i  (wb_s2m_spi_master_dat[15:0]),
+    .wb_ack_i  (wb_s2m_spi_master_ack),
+    .wb_err_i  (wb_s2m_spi_master_err),
+    .wb_rty_i  (wb_s2m_spi_master_rty)
+    );
+
+	assign wb_m2s_spi_master_adr[1:0] = 2'b00;
+	assign wb_m2s_spi_master_adr[31:15] = 17'h00000;
+	assign wb_m2s_spi_master_dat[31:16] = 16'h0000;
+	assign ICX[15:4] = 12'hZZZ;
+	assign ICX[2:0] = 3'bZZZ;
+		
 endmodule
