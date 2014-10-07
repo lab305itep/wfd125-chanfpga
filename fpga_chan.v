@@ -16,7 +16,11 @@
 // Revision: 
 // Revision 0.01 - File Created
 // Additional Comments: 
-//
+//  ICX usage:
+//  2  - XSPI frame
+//  3  - XSPI data
+//  4  - XSPI clock
+//  5  - WB reset
 //////////////////////////////////////////////////////////////////////////////////
 module fpga_chan(
     // ADC A
@@ -71,7 +75,7 @@ module fpga_chan(
     );
 
 	wire wb_clk;
-	wire wb_rst;
+	reg wb_rst;
 `include "wb_intercon.vh"
 
 	wire [15:0] GTP_DAT_A;
@@ -88,12 +92,13 @@ module fpga_chan(
 		wb_m2s_i2c_clk_stb, wb_m2s_adc_spi_stb};
 
 	assign wb_clk = CLK125;
-	assign wb_rst = 1'b0;
 	
 	wire I2CCLK_o;
 	wire I2CCLK_en;
 	wire I2CDAT_o;
 	wire I2CDAT_en;
+
+	always @ (posedge wb_clk) wb_rst <= ICX[5];
 
     //--------------------------- The GTP Wrapper -----------------------------
     s6_gtpwizard_v1_11 #

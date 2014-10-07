@@ -133,6 +133,8 @@ module spi_wbmaster(
 				if (wb_ack_i || wb_err_i || wb_rty_i || !timeout_cnt) begin	// end on any result :-(
 					state <= `WAIT_SEND;
 					osreg <= wb_dat_i;
+					wb_cyc_o <= 1'b0;
+					wb_stb_o <= 1'b0;
 				end else begin
 					timeout_cnt <= timeout_cnt - 1;
 				end
@@ -175,6 +177,8 @@ module spi_wbmaster(
 				wb_stb_o <= 1'b1;
 				if (wb_ack_i || wb_err_i || wb_rty_i || !timeout_cnt) begin	// end on any result :-(
 					state <= `WAIT_END;
+					wb_cyc_o <= 1'b0;
+					wb_stb_o <= 1'b0;
 				end else begin
 					timeout_cnt <= timeout_cnt - 1;
 				end				

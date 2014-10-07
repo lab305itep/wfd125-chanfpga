@@ -411,8 +411,8 @@
     <!-- include files.                                                       -->
     <file xil_pn:name="wb_intercon.vh" xil_pn:type="FILE_VERILOG"/>
     <file xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh" xil_pn:type="FILE_VERILOG"/>
-    <file xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v" xil_pn:type="FILE_VERILOG"/>
     <file xil_pn:name="timescale.v" xil_pn:type="FILE_VERILOG"/>
+    <file xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v" xil_pn:type="FILE_VERILOG"/>
   </autoManagedFiles>
 
 </project>
