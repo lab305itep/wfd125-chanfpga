@@ -36,6 +36,18 @@ wire  [7:0] wb_s2m_i2c_clk_dat;
 wire        wb_s2m_i2c_clk_ack;
 wire        wb_s2m_i2c_clk_err;
 wire        wb_s2m_i2c_clk_rty;
+wire [31:0] wb_m2s_reg_csr_adr;
+wire [31:0] wb_m2s_reg_csr_dat;
+wire  [3:0] wb_m2s_reg_csr_sel;
+wire        wb_m2s_reg_csr_we;
+wire        wb_m2s_reg_csr_cyc;
+wire        wb_m2s_reg_csr_stb;
+wire  [2:0] wb_m2s_reg_csr_cti;
+wire  [1:0] wb_m2s_reg_csr_bte;
+wire [31:0] wb_s2m_reg_csr_dat;
+wire        wb_s2m_reg_csr_ack;
+wire        wb_s2m_reg_csr_err;
+wire        wb_s2m_reg_csr_rty;
 
 wb_intercon wb_intercon0
    (.wb_clk_i            (wb_clk),
@@ -75,5 +87,17 @@ wb_intercon wb_intercon0
     .wb_i2c_clk_dat_i    (wb_s2m_i2c_clk_dat),
     .wb_i2c_clk_ack_i    (wb_s2m_i2c_clk_ack),
     .wb_i2c_clk_err_i    (wb_s2m_i2c_clk_err),
-    .wb_i2c_clk_rty_i    (wb_s2m_i2c_clk_rty));
+    .wb_i2c_clk_rty_i    (wb_s2m_i2c_clk_rty),
+    .wb_reg_csr_adr_o    (wb_m2s_reg_csr_adr),
+    .wb_reg_csr_dat_o    (wb_m2s_reg_csr_dat),
+    .wb_reg_csr_sel_o    (wb_m2s_reg_csr_sel),
+    .wb_reg_csr_we_o     (wb_m2s_reg_csr_we),
+    .wb_reg_csr_cyc_o    (wb_m2s_reg_csr_cyc),
+    .wb_reg_csr_stb_o    (wb_m2s_reg_csr_stb),
+    .wb_reg_csr_cti_o    (wb_m2s_reg_csr_cti),
+    .wb_reg_csr_bte_o    (wb_m2s_reg_csr_bte),
+    .wb_reg_csr_dat_i    (wb_s2m_reg_csr_dat),
+    .wb_reg_csr_ack_i    (wb_s2m_reg_csr_ack),
+    .wb_reg_csr_err_i    (wb_s2m_reg_csr_err),
+    .wb_reg_csr_rty_i    (wb_s2m_reg_csr_rty));
 

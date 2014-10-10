@@ -86,11 +86,39 @@ module fpga_chan(
 	wire 		  GTP_ALIGNED_A;
 	wire [1:0] GTPCLKOUT;
 	wire CLK125;
+	wire [191:0] D_s;		// data from ADC
+	reg [15:0] D2GTP;	// data to GTP
+	wire [31:0] CSR;	
+	reg [1:0] txcomma = 2'b00;
+	reg [9:0] commacnt = 0;
 	
+	always @ (posedge CLK125) begin
+		case (CSR[3:0]) 
+		4'h0:	D2GTP <= {4'h0, D_s[11:0]};
+		4'h1:	D2GTP <= {4'h0, D_s[23:12]};
+		4'h2:	D2GTP <= {4'h0, D_s[35:24]};
+		4'h3:	D2GTP <= {4'h0, D_s[47:36]};
+		4'h4:	D2GTP <= {4'h0, D_s[59:48]};
+		4'h5:	D2GTP <= {4'h0, D_s[71:60]};
+		4'h6:	D2GTP <= {4'h0, D_s[83:72]};
+		4'h7:	D2GTP <= {4'h0, D_s[95:84]};
+		4'h8:	D2GTP <= {4'h0, D_s[107:86]};
+		4'h9:	D2GTP <= {4'h0, D_s[119:108]};
+		4'hA:	D2GTP <= {4'h0, D_s[131:120]};
+		4'hB:	D2GTP <= {4'h0, D_s[143:132]};
+		4'hC:	D2GTP <= {4'h0, D_s[155:144]};
+		4'hD:	D2GTP <= {4'h0, D_s[167:156]};
+		4'hE:	D2GTP <= {4'h0, D_s[179:168]};
+		4'hF:	D2GTP <= {4'h0, D_s[191:180]};
+		endcase
+		txcomma <= 2'b00;
+		if (commacnt < 10) begin
+			txcomma <= 2'b01;
+			D2GTP <= {commacnt[7:0], 8'hBC};
+		end
+		commacnt <= commacnt + 1;
+	end
 	assign ACNTR = 4'bzzzz;
-	assign TP = {wb_m2s_spi_master_stb, wb_m2s_spi_master_cyc, wb_s2m_spi_master_ack,
-		wb_m2s_i2c_clk_stb, wb_m2s_adc_spi_stb};
-
 	assign wb_clk = CLK125;
 	
 	wire I2CCLK_o;
@@ -99,6 +127,7 @@ module fpga_chan(
 	wire I2CDAT_en;
 
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
+	
 
     //--------------------------- The GTP Wrapper -----------------------------
     s6_gtpwizard_v1_11 #
@@ -159,10 +188,10 @@ module fpga_chan(
         .TILE0_GTPCLKOUT0_OUT           (GTPCLKOUT),
         .TILE0_GTPCLKOUT1_OUT           (),
         //----------------- Transmit Ports - 8b10b Encoder Control -----------------
-        .TILE0_TXCHARISK0_IN            (GTP_CHARISK_A),
+        .TILE0_TXCHARISK0_IN            (txcomma),
         .TILE0_TXCHARISK1_IN            (),
         //---------------- Transmit Ports - TX Data Path interface -----------------
-        .TILE0_TXDATA0_IN               (GTP_DAT_A),
+        .TILE0_TXDATA0_IN               (D2GTP),
         .TILE0_TXDATA1_IN               (),
         .TILE0_TXUSRCLK0_IN             (CLK250),
         .TILE0_TXUSRCLK1_IN             (CLK250),
@@ -402,5 +431,56 @@ spi_wbmaster spi_master(
 	assign wb_m2s_spi_master_dat[31:16] = 16'h0000;
 	assign ICX[15:4] = 12'hZZZ;
 	assign ICX[2:0] = 3'bZZZ;
-		
+
+  inoutreg reg_csr (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_reg_csr_adr[2]), 
+		.wb_dat_i  (wb_m2s_reg_csr_dat), 
+		.wb_dat_o  (wb_s2m_reg_csr_dat),
+		.wb_we     (wb_m2s_reg_csr_we),
+		.wb_stb    (wb_m2s_reg_csr_stb),
+		.wb_cyc    (wb_m2s_reg_csr_cyc), 
+		.wb_ack    (wb_s2m_reg_csr_ack), 
+		.reg_i	  (0),
+		.reg_o	  (CSR)
+	);
+	assign wb_s2m_reg_csr_err = 0;
+	assign wb_s2m_reg_csr_rty = 0;
+
+//	ADC receiver
+	adc4rcv DINA_rcv (
+    .CLK    (CLK125),	// global clock
+    .CLKIN  (ACA),		// input clock from ADC (375 MHz)
+    .DIN    (ADA),		// Input data from ADC
+    .FR	   (AFA),		// Input frame from ADC 
+    .DOUT	(D_s[47:0]),	// output data (CLK clocked)
+	 .debug  (TP[1])
+    );
+	adc4rcv DINB_rcv (
+    .CLK    (CLK125),	// global clock
+    .CLKIN  (ACB),		// input clock from ADC (375 MHz)
+    .DIN    (ADB),		// Input data from ADC
+    .FR	   (AFB),		// Input frame from ADC 
+    .DOUT	(D_s[95:48]),// output data (CLK clocked)
+	 .debug  (TP[2])
+    );
+	adc4rcv DINC_rcv (
+    .CLK    (CLK125),	// global clock
+    .CLKIN  (ACC),		// input clock from ADC (375 MHz)
+    .DIN    (ADC),		// Input data from ADC
+    .FR	   (AFC),		// Input frame from ADC 
+    .DOUT	(D_s[143:96]),	// output data (CLK clocked)
+	 .debug  (TP[3])
+    );
+	adc4rcv DIND_rcv (
+    .CLK    (CLK125),	// global clock
+    .CLKIN  (ACD),		// input clock from ADC (375 MHz)
+    .DIN    (ADD),		// Input data from ADC
+    .FR	   (AFD),		// Input frame from ADC 
+    .DOUT	(D_s[191:144]),	// output data (CLK clocked)
+	 .debug  (TP[4])	 
+    );
+	 
+	 assign TP[5] = txcomma[0];
+	 
 endmodule
