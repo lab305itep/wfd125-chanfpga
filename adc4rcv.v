@@ -34,6 +34,7 @@ module adc4rcv(
 	 wire [1:0] CLKIN_2;
 	 wire [5:0] FR_r;
 	 reg        BS;
+	 reg  [3:0] BSCNT;
 	 wire       IOCE;
 	 
 	 assign debug = BS;
@@ -85,11 +86,13 @@ module adc4rcv(
     );
 
 	always @ (posedge CLK) begin
-		if (!BS && FR_r != FRAME) begin
+		if ((!BSCNT) && FR_r != FRAME) begin
 			BS <= 1'b1;
+			BSCNT <= 4'b1111;
 		end else begin
 			BS <= 1'b0;
 		end
+		if (BSCNT) BSCNT <= BSCNT - 1;
 	end 
 
 //		Data

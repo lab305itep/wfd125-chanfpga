@@ -93,24 +93,28 @@ module fpga_chan(
 	reg [9:0] commacnt = 0;
 	
 	always @ (posedge CLK125) begin
-		case (CSR[3:0]) 
-		4'h0:	D2GTP <= {4'h0, D_s[11:0]};
-		4'h1:	D2GTP <= {4'h0, D_s[23:12]};
-		4'h2:	D2GTP <= {4'h0, D_s[35:24]};
-		4'h3:	D2GTP <= {4'h0, D_s[47:36]};
-		4'h4:	D2GTP <= {4'h0, D_s[59:48]};
-		4'h5:	D2GTP <= {4'h0, D_s[71:60]};
-		4'h6:	D2GTP <= {4'h0, D_s[83:72]};
-		4'h7:	D2GTP <= {4'h0, D_s[95:84]};
-		4'h8:	D2GTP <= {4'h0, D_s[107:86]};
-		4'h9:	D2GTP <= {4'h0, D_s[119:108]};
-		4'hA:	D2GTP <= {4'h0, D_s[131:120]};
-		4'hB:	D2GTP <= {4'h0, D_s[143:132]};
-		4'hC:	D2GTP <= {4'h0, D_s[155:144]};
-		4'hD:	D2GTP <= {4'h0, D_s[167:156]};
-		4'hE:	D2GTP <= {4'h0, D_s[179:168]};
-		4'hF:	D2GTP <= {4'h0, D_s[191:180]};
-		endcase
+		if (CSR[4]) begin
+			D2GTP <= {6'b010101, commacnt};
+		end else begin
+			case (CSR[3:0]) 
+			4'h0:	D2GTP <= {4'h0, D_s[11:0]};
+			4'h1:	D2GTP <= {4'h1, D_s[23:12]};
+			4'h2:	D2GTP <= {4'h2, D_s[35:24]};
+			4'h3:	D2GTP <= {4'h3, D_s[47:36]};
+			4'h4:	D2GTP <= {4'h4, D_s[59:48]};
+			4'h5:	D2GTP <= {4'h5, D_s[71:60]};
+			4'h6:	D2GTP <= {4'h6, D_s[83:72]};
+			4'h7:	D2GTP <= {4'h7, D_s[95:84]};
+			4'h8:	D2GTP <= {4'h8, D_s[107:96]};
+			4'h9:	D2GTP <= {4'h9, D_s[119:108]};
+			4'hA:	D2GTP <= {4'hA, D_s[131:120]};
+			4'hB:	D2GTP <= {4'hB, D_s[143:132]};
+			4'hC:	D2GTP <= {4'hC, D_s[155:144]};
+			4'hD:	D2GTP <= {4'hD, D_s[167:156]};
+			4'hE:	D2GTP <= {4'hE, D_s[179:168]};
+			4'hF:	D2GTP <= {4'hF, D_s[191:180]};
+			endcase
+		end
 		txcomma <= 2'b00;
 		if (commacnt < 10) begin
 			txcomma <= 2'b01;
@@ -441,7 +445,7 @@ spi_wbmaster spi_master(
 		.wb_stb    (wb_m2s_reg_csr_stb),
 		.wb_cyc    (wb_m2s_reg_csr_cyc), 
 		.wb_ack    (wb_s2m_reg_csr_ack), 
-		.reg_i	  (0),
+		.reg_i	  (CSR),
 		.reg_o	  (CSR)
 	);
 	assign wb_s2m_reg_csr_err = 0;
