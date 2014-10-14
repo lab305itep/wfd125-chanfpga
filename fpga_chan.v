@@ -94,7 +94,7 @@ module fpga_chan(
 	
 	always @ (posedge CLK125) begin
 		if (CSR[4]) begin
-			D2GTP <= {6'b010101, commacnt};
+			D2GTP <= {10'h000, debug[7:2]};
 		end else begin
 			case (CSR[3:0]) 
 			4'h0:	D2GTP <= {4'h0, D_s[11:0]};
@@ -450,6 +450,8 @@ spi_wbmaster spi_master(
 	);
 	assign wb_s2m_reg_csr_err = 0;
 	assign wb_s2m_reg_csr_rty = 0;
+	
+	wire [9:0] debug;
 
 //	ADC receiver
 	adc4rcv DINA_rcv (
@@ -458,7 +460,8 @@ spi_wbmaster spi_master(
     .DIN    (ADA),		// Input data from ADC
     .FR	   (AFA),		// Input frame from ADC 
     .DOUT	(D_s[47:0]),	// output data (CLK clocked)
-	 .debug  (TP[1])
+	 .BSENABLE (!CSR[5]),
+	 .debug  (debug)
     );
 	adc4rcv DINB_rcv (
     .CLK    (CLK125),	// global clock
@@ -466,7 +469,8 @@ spi_wbmaster spi_master(
     .DIN    (ADB),		// Input data from ADC
     .FR	   (AFB),		// Input frame from ADC 
     .DOUT	(D_s[95:48]),// output data (CLK clocked)
-	 .debug  (TP[2])
+	 .BSENABLE (!CSR[5]),
+	 .debug  ()
     );
 	adc4rcv DINC_rcv (
     .CLK    (CLK125),	// global clock
@@ -474,7 +478,8 @@ spi_wbmaster spi_master(
     .DIN    (ADC),		// Input data from ADC
     .FR	   (AFC),		// Input frame from ADC 
     .DOUT	(D_s[143:96]),	// output data (CLK clocked)
-	 .debug  (TP[3])
+	 .BSENABLE (!CSR[5]),
+	 .debug  ()
     );
 	adc4rcv DIND_rcv (
     .CLK    (CLK125),	// global clock
@@ -482,9 +487,10 @@ spi_wbmaster spi_master(
     .DIN    (ADD),		// Input data from ADC
     .FR	   (AFD),		// Input frame from ADC 
     .DOUT	(D_s[191:144]),	// output data (CLK clocked)
-	 .debug  (TP[4])	 
+	 .BSENABLE (!CSR[5]),
+	 .debug  ()	 
     );
 	 
-	 assign TP[5] = txcomma[0];
+	 assign TP = debug[4:0];
 	 
 endmodule

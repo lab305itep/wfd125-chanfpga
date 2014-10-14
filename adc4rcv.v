@@ -26,10 +26,11 @@ module adc4rcv(
     input  [15:0] DIN,		// Input data from ADC
     input  [1:0]  FR,		// Input frame from ADC 
     output [47:0] DOUT,		// output data (CLK clocked)
-	 output 			debug
+	 input         BSENABLE,
+	 output [9:0]	debug
     );
 	 
-	 parameter [5:0] FRAME = 6'b111000;
+	 parameter [5:0] FRAME = 6'b000111;
 	 wire [1:0] CLKIN_s;
 	 wire [1:0] CLKIN_2;
 	 wire [5:0] FR_r;
@@ -37,7 +38,7 @@ module adc4rcv(
 	 reg  [3:0] BSCNT;
 	 wire       IOCE;
 	 
-	 assign debug = BS;
+	 assign debug[0] = BS;
 
    IBUFGDS_DIFF_OUT #(
       .DIFF_TERM("TRUE"),   // Differential Termination, "TRUE"/"FALSE" 
@@ -49,32 +50,41 @@ module adc4rcv(
       .IB(CLKIN[1])  // Diff_n buffer input (connect directly to top-level port)
    );
 
-   BUFIO2 #(
-      .DIVIDE(6),             // DIVCLK divider (1,3-8)
-      .DIVIDE_BYPASS("FALSE"),// Bypass the divider circuitry (TRUE/FALSE)
-      .I_INVERT("FALSE"),     // Invert clock (TRUE/FALSE)
-      .USE_DOUBLER("TRUE")    // Use doubler circuitry (TRUE/FALSE)
+   BUFIO2_2CLK #(
+      .DIVIDE(6)  // DIVCLK divider (3-8)
    )
-   BUFIO2_P (
-      .DIVCLK(),      			 // 1-bit output: Divided clock output
-      .IOCLK(CLKIN_2[0]),       	 // 1-bit output: I/O output clock
-      .SERDESSTROBE(IOCE), 	 // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      .I(CLKIN_s[0])              // 1-bit input: Clock input (connect to IBUFG)
+   BUFIO2_2CLK_p (
+      .DIVCLK(),             	// 1-bit output: Divided clock output
+      .IOCLK(CLKIN_2[0]),     // 1-bit output: I/O output clock
+      .SERDESSTROBE(IOCE), 	// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
+      .I(CLKIN_s[0]),         // 1-bit input: Clock input (connect to IBUFG)
+      .IB(CLKIN_s[1])         // 1-bit input: Secondary clock input
    );
 
-   BUFIO2 #(
+   BUFIO2_2CLK #(
+      .DIVIDE(6)  // DIVCLK divider (3-8)
+   )
+   BUFIO2_2CLK_n (
+      .DIVCLK(),             	// 1-bit output: Divided clock output
+      .IOCLK(CLKIN_2[1]),     // 1-bit output: I/O output clock
+      .SERDESSTROBE(), 	// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
+      .I(CLKIN_s[1]),         // 1-bit input: Clock input (connect to IBUFG)
+      .IB(CLKIN_s[0])         // 1-bit input: Secondary clock input
+   );
+
+/*   BUFIO2 #(
       .DIVIDE(6),             // DIVCLK divider (1,3-8)
-      .DIVIDE_BYPASS("FALSE"),// Bypass the divider circuitry (TRUE/FALSE)
-      .I_INVERT("FALSE"),     // Invert clock (TRUE/FALSE)
-      .USE_DOUBLER("TRUE")    // Use doubler circuitry (TRUE/FALSE)
+      .DIVIDE_BYPASS("TRUE"),// Bypass the divider circuitry (TRUE/FALSE)
+      .I_INVERT("TRUE"),     // Invert clock (TRUE/FALSE)
+      .USE_DOUBLER("FALSE")   // Use doubler circuitry (TRUE/FALSE)
    )
    BUFIO2_N (
       .DIVCLK(),      			 // 1-bit output: Divided clock output
       .IOCLK(CLKIN_2[1]),       	 // 1-bit output: I/O output clock
       .SERDESSTROBE(), 	 // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      .I(CLKIN_s[1])              // 1-bit input: Clock input (connect to IBUFG)
+      .I(CLKIN_s[0])              // 1-bit input: Clock input (connect to IBUFG)
    );
-
+*/
 //		Frame
 	adc1rcv FR_rcv(
     .CLK(CLK),
@@ -82,11 +92,15 @@ module adc4rcv(
     .DIN(FR),
     .DOUT(FR_r),
 	 .BS(BS),
-	 .IOCE(IOCE)
+	 .IOCE(IOCE),
+	 .debug(debug[1])
     );
+	 
+	 assign debug[9:2] = {2'b0, FR_r};
+	 
 
 	always @ (posedge CLK) begin
-		if ((!BSCNT) && FR_r != FRAME) begin
+		if (BSENABLE && (!BSCNT) && FR_r != FRAME) begin
 			BS <= 1'b1;
 			BSCNT <= 4'b1111;
 		end else begin
@@ -106,7 +120,8 @@ module adc4rcv(
 			.DIN(DIN[2*i+1:2*i]),
 			.DOUT(DOUT[6*i+5:6*i]),
 			.BS(BS),
-			.IOCE(IOCE)
+			.IOCE(IOCE),
+			.debug()
 		);
       end
    endgenerate

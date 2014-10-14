@@ -24,7 +24,8 @@ module adc1rcv(
     input  [1:0] DIN,
     output [5:0] DOUT,
 	 input BS,
-	 input IOCE
+	 input IOCE,
+	 output debug
     );
 
 	wire DIN_s;
@@ -50,7 +51,7 @@ module adc1rcv(
       .CFB0(),           // 1-bit output: Clock feed-through route output
       .CFB1(),           // 1-bit output: Clock feed-through route output
       .DFB(),             // 1-bit output: Feed-through clock output
-      .FABRICOUT(), // 1-bit output: Unsynchrnonized data output
+      .FABRICOUT(debug), // 1-bit output: Unsynchrnonized data output
       .INCDEC(),       // 1-bit output: Phase detector output
       // Q1 - Q4: 1-bit (each) output: Registered outputs to FPGA logic
       .Q1(DOUT[2]),
