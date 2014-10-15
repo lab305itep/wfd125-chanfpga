@@ -30,7 +30,7 @@ module adc4rcv(
 	 output [9:0]	debug
     );
 	 
-	 parameter [5:0] FRAME = 6'b000111;
+	 parameter [5:0] FRAME = 6'b111000;
 	 wire [1:0] CLKIN_s;
 	 wire [1:0] CLKIN_2;
 	 wire [5:0] FR_r;

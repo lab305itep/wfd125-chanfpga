@@ -54,10 +54,10 @@ module adc1rcv(
       .FABRICOUT(debug), // 1-bit output: Unsynchrnonized data output
       .INCDEC(),       // 1-bit output: Phase detector output
       // Q1 - Q4: 1-bit (each) output: Registered outputs to FPGA logic
-      .Q1(DOUT[2]),
-      .Q2(DOUT[3]),
-      .Q3(DOUT[4]),
-      .Q4(DOUT[5]),
+      .Q1(DOUT[3]),
+      .Q2(DOUT[2]),
+      .Q3(DOUT[1]),
+      .Q4(DOUT[0]),
       .SHIFTOUT(M2S),   // 1-bit output: Cascade output signal for master/slave I/O
       .VALID(),         // 1-bit output: Output status of the phase detector
       .BITSLIP(BS),     // 1-bit input: Bitslip enable input
@@ -87,8 +87,8 @@ module adc1rcv(
       // Q1 - Q4: 1-bit (each) output: Registered outputs to FPGA logic
       .Q1(),
       .Q2(),
-      .Q3(DOUT[0]),
-      .Q4(DOUT[1]),
+      .Q3(DOUT[5]),
+      .Q4(DOUT[4]),
       .SHIFTOUT(),      // 1-bit output: Cascade output signal for master/slave I/O
       .VALID(),         // 1-bit output: Output status of the phase detector
       .BITSLIP(BS),     // 1-bit input: Bitslip enable input
