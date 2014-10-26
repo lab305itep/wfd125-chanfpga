@@ -16,11 +16,33 @@
 // Revision: 
 // Revision 0.01 - File Created
 // Additional Comments: 
-//  ICX usage:
+//  	ICX usage:
 //  2  - XSPI frame
 //  3  - XSPI data
 //  4  - XSPI clock
 //  5  - WB reset
+//		GTP channel usage
+//		Output:
+//	 0 - sending data blocks, commas as spacer, K-char (not comma) if total sum is above the trigger threshold. 
+//      This character interrupts data blocks.
+//	 3:1 - send summ of all channels, comma if the summ is too small.
+//    Input :
+//	 0 - trigger from the communication Xilinx
+//  3:1 - summs from the other Xilinxes.
+//		CSR bits:
+//		
+//		Array registers:
+//	0 - summ mask
+// 1 - trigger mask
+// 2 - selftrigger mask
+// 3 - summ send threshold (for the summ of 16 channels)
+// 4 - trigger send threshold - master trigger zero suppression
+// 5 - self trigger threshold
+// 6 - 64-channels sum trigger threshold
+// 7 - selftrigger prescale
+// 8 - master trigger window begin
+// 9 - window length
+// 10 - self trigger window begin
 //////////////////////////////////////////////////////////////////////////////////
 module fpga_chan(
     // ADC A
@@ -74,97 +96,72 @@ module fpga_chan(
     output [5:1] TP
     );
 
+//		Wires and registers
+	wire CLK125;
+	wire [191:0] D_s;					// data from ADC
+	reg  [63:0]  gtp_data_i = 0;	// data to GTP
+	reg  [3:0]   gtp_comma_i = 4'h0;
+	wire [63:0]  gtp_data_o; 		// data ftom GTP
+	wire [3:0]   gtp_comma_o;		
+	wire [31:0]  CSR;
+	wire [15:0]  par_array [15:0];
+
+//		WB-bus
 	wire wb_clk;
 	reg wb_rst;
 `include "wb_intercon.vh"
-
-	wire CLK125;
-	wire [191:0] D_s;		// data from ADC
-	reg [15:0] D2GTP;	// data to GTP
-	wire [31:0] CSR;	
-	reg txcomma = 1'b0;
-	reg [9:0] commacnt = 0;
-	
-	always @ (posedge CLK125) begin
-		if (CSR[4]) begin
-			D2GTP <= {10'h000, debug[7:2]};
-		end else begin
-			case (CSR[3:0]) 
-			4'h0:	D2GTP <= {4'h0, D_s[11:0]};
-			4'h1:	D2GTP <= {4'h1, D_s[23:12]};
-			4'h2:	D2GTP <= {4'h2, D_s[35:24]};
-			4'h3:	D2GTP <= {4'h3, D_s[47:36]};
-			4'h4:	D2GTP <= {4'h4, D_s[59:48]};
-			4'h5:	D2GTP <= {4'h5, D_s[71:60]};
-			4'h6:	D2GTP <= {4'h6, D_s[83:72]};
-			4'h7:	D2GTP <= {4'h7, D_s[95:84]};
-			4'h8:	D2GTP <= {4'h8, D_s[107:96]};
-			4'h9:	D2GTP <= {4'h9, D_s[119:108]};
-			4'hA:	D2GTP <= {4'hA, D_s[131:120]};
-			4'hB:	D2GTP <= {4'hB, D_s[143:132]};
-			4'hC:	D2GTP <= {4'hC, D_s[155:144]};
-			4'hD:	D2GTP <= {4'hD, D_s[167:156]};
-			4'hE:	D2GTP <= {4'hE, D_s[179:168]};
-			4'hF:	D2GTP <= {4'hF, D_s[191:180]};
-			endcase
-		end
-		txcomma <= 1'b0;
-		if (commacnt < 10) begin
-			txcomma <= 1'b1;
-			D2GTP <= {commacnt[7:0], 8'hBC};
-		end
-		commacnt <= commacnt + 1;
-	end
-	assign ACNTR = 4'bzzzz;
-	
-	wire I2CCLK_o;
-	wire I2CCLK_en;
-	wire I2CDAT_o;
-	wire I2CDAT_en;
-
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
+
+	assign ACNTR = 4'bzzzz;
+	assign TP = 0;
+
+//		GTP communication module
 	
-	gtprcv4 # (.WB_DIVIDE(5), .WB_MULTIPLY(5))
-	UGTP (
-		.rxpin	({RX3, RX2, RX1, RX0}),	// input data pins
-		.txpin	({TX3, TX2, TX1, TX0}),	// output data pins
-		.clkpin	(RCLK),						// input clock pins - tile0 package pins A10/B10
-		.clkout	(CLK125),					// output 125 MHz clock
-		.clkwb   (wb_clk),					// output clock for wishbone
-		.data_o		(),						// output data 4x16bit
-		.charisk_o	(), 						// output char is K-char signature
-		.data_i     ({48'h00BC00BC00BC00BC, D2GTP}),
-		.charisk_i  ({3'b111, txcomma}),
-		.locked  ()
+	gtprcv4 # (.WB_DIVIDE(5), .WB_MULTIPLY(5)) UGTP (
+		.rxpin		({RX3, RX2, RX1, RX0}),	// input data pins
+		.txpin		({TX3, TX2, TX1, TX0}),	// output data pins
+		.clkpin		(RCLK),						// input clock pins - tile0 package pins A10/B10
+		.clkout		(CLK125),					// output 125 MHz clock
+		.clkwb   	(wb_clk),					// output clock for wishbone
+		.data_o		(gtp_data_o),				// data received
+		.charisk_o	(gtp_comma_o),				// 
+		.data_i     (gtp_data_i),				//	data send
+		.charisk_i  (gtp_comma_i),
+		.locked  	()
     );
 
+//		SPI to ADCs
 	wire [3:0] empty_spi_cs;
-
-xspi_master  #(
-	.CLK_DIV (49),
-	.CLK_POL (1'b0)
-) adc_spi (
-	 .wb_rst    (wb_rst),
-    .wb_clk    (wb_clk),
-    .wb_we     (wb_m2s_adc_spi_we),
-    .wb_dat_i  (wb_m2s_adc_spi_dat[15:0]),
-    .wb_dat_o  (wb_s2m_adc_spi_dat[15:0]),
-    .wb_cyc		(wb_m2s_adc_spi_cyc),
-    .wb_stb		(wb_m2s_adc_spi_stb),
-    .wb_ack		(wb_s2m_adc_spi_ack),
-    .spi_dat   (SPIDAT),
-    .spi_clk   (SPICLK),
-    .spi_cs    ({empty_spi_cs, SPISEL}),
-    .wb_adr		(wb_m2s_adc_spi_adr[2])
-);
+	xspi_master  #(
+		.CLK_DIV (49),
+		.CLK_POL (1'b0)
+	) adc_spi (
+		.wb_rst    	(wb_rst),
+		.wb_clk   	(wb_clk),
+		.wb_we   	(wb_m2s_adc_spi_we),
+		.wb_dat_i	(wb_m2s_adc_spi_dat[15:0]),
+		.wb_dat_o	(wb_s2m_adc_spi_dat[15:0]),
+		.wb_cyc		(wb_m2s_adc_spi_cyc),
+		.wb_stb		(wb_m2s_adc_spi_stb),
+		.wb_ack		(wb_s2m_adc_spi_ack),
+		.spi_dat   (SPIDAT),
+		.spi_clk   (SPICLK),
+		.spi_cs    ({empty_spi_cs, SPISEL}),
+		.wb_adr		(wb_m2s_adc_spi_adr[2])
+	);
 	assign wb_s2m_adc_spi_err = 0;
 	assign wb_s2m_adc_spi_rty = 0;	
 	assign wb_s2m_adc_spi_dat[31:16] = 0;
 
+//		I2C to clock chip
+	wire I2CCLK_o;
+	wire I2CCLK_en;
+	wire I2CDAT_o;
+	wire I2CDAT_en;
 	assign wb_s2m_i2c_clk_err = 0;
 	assign wb_s2m_i2c_clk_rty = 0;
 
-  i2c_master_slave i2c_clk (
+	i2c_master_slave i2c_clk (
 		.wb_clk_i  (wb_clk), 
 		.wb_rst_i  (wb_rst),		// active high 
 		.arst_i    (1'b0), 		// active high
@@ -187,25 +184,26 @@ xspi_master  #(
    assign I2CCLK = (!I2CCLK_en) ? (I2CCLK_o) : 1'bz;
    assign I2CDAT = (!I2CDAT_en) ? (I2CDAT_o) : 1'bz;
 
-spi_wbmaster spi_master(
-    .CLK 		(wb_clk),
-    .SPICLK 	(ICX[4]),
-    .SPIDAT		(ICX[3]),
-    .SPIFR		(ICX[2]),
-    .STADDR		(CHN),
-    .wb_adr_o  (wb_m2s_spi_master_adr[14:2]),
-    .wb_dat_o  (wb_m2s_spi_master_dat[15:0]),
-    .wb_sel_o  (wb_m2s_spi_master_sel),
-    .wb_we_o	(wb_m2s_spi_master_we),
-    .wb_cyc_o  (wb_m2s_spi_master_cyc),
-    .wb_stb_o  (wb_m2s_spi_master_stb),
-    .wb_cti_o  (wb_m2s_spi_master_cti),
-    .wb_bte_o  (wb_m2s_spi_master_bte),
-    .wb_dat_i  (wb_s2m_spi_master_dat[15:0]),
-    .wb_ack_i  (wb_s2m_spi_master_ack),
-    .wb_err_i  (wb_s2m_spi_master_err),
-    .wb_rty_i  (wb_s2m_spi_master_rty)
-    );
+//		SPI from the master Xilinx - master on the WB-bus
+	spi_wbmaster spi_master(
+		.CLK 			(wb_clk),
+		.SPICLK 		(ICX[4]),
+		.SPIDAT		(ICX[3]),
+		.SPIFR		(ICX[2]),
+		.STADDR		(CHN),
+		.wb_adr_o 	(wb_m2s_spi_master_adr[14:2]),
+		.wb_dat_o  	(wb_m2s_spi_master_dat[15:0]),
+		.wb_sel_o  	(wb_m2s_spi_master_sel),
+		.wb_we_o		(wb_m2s_spi_master_we),
+		.wb_cyc_o  	(wb_m2s_spi_master_cyc),
+		.wb_stb_o   (wb_m2s_spi_master_stb),
+		.wb_cti_o   (wb_m2s_spi_master_cti),
+		.wb_bte_o   (wb_m2s_spi_master_bte),
+		.wb_dat_i   (wb_s2m_spi_master_dat[15:0]),
+		.wb_ack_i   (wb_s2m_spi_master_ack),
+		.wb_err_i   (wb_s2m_spi_master_err),
+		.wb_rty_i   (wb_s2m_spi_master_rty)
+   );
 
 	assign wb_m2s_spi_master_adr[1:0] = 2'b00;
 	assign wb_m2s_spi_master_adr[31:15] = 17'h00000;
@@ -213,7 +211,8 @@ spi_wbmaster spi_master(
 	assign ICX[15:4] = 12'hZZZ;
 	assign ICX[2:0] = 3'bZZZ;
 
-  inoutreg reg_csr (
+//		CSR
+	inoutreg reg_csr (
 		.wb_clk    (wb_clk), 
 		.wb_adr    (wb_m2s_reg_csr_adr[2]), 
 		.wb_dat_i  (wb_m2s_reg_csr_dat), 
@@ -228,46 +227,58 @@ spi_wbmaster spi_master(
 	assign wb_s2m_reg_csr_err = 0;
 	assign wb_s2m_reg_csr_rty = 0;
 	
-	wire [9:0] debug;
-
-//	ADC receiver
+//		register array
+	parreg16 #(.ADRBITS(4)) reg_array (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_reg_array_adr[5:2]), 
+		.wb_dat_i  (wb_m2s_reg_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_reg_array_dat[15:0]),
+		.wb_we     (wb_m2s_reg_array_we),
+		.wb_stb    (wb_m2s_reg_array_stb),
+		.wb_cyc    (wb_m2s_reg_array_cyc), 
+		.wb_ack    (wb_s2m_reg_array_ack), 
+		.reg_o	  (par_array)
+	);
+	assign wb_s2m_reg_array_err = 0;
+	assign wb_s2m_reg_array_rty = 0;
+	assign wb_s2m_reg_array_dat[31:16] = 16'h0000;
+	
+//	ADC receivers
 	adc4rcv DINA_rcv (
-    .CLK    (CLK125),	// global clock
-    .CLKIN  (ACA),		// input clock from ADC (375 MHz)
-    .DIN    (ADA),		// Input data from ADC
-    .FR	   (AFA),		// Input frame from ADC 
-    .DOUT	(D_s[47:0]),	// output data (CLK clocked)
-	 .BSENABLE (!CSR[5]),
-	 .debug  (debug)
-    );
+		.CLK    	(CLK125),	// global clock
+		.CLKIN  	(ACA),		// input clock from ADC (375 MHz)
+		.DIN    	(ADA),		// Input data from ADC
+		.FR	  	(AFA),		// Input frame from ADC 
+		.DOUT		(D_s[47:0]),	// output data (CLK clocked)
+		.BSENABLE (1'b1),
+		.debug  	()
+	);
 	adc4rcv DINB_rcv (
-    .CLK    (CLK125),	// global clock
-    .CLKIN  (ACB),		// input clock from ADC (375 MHz)
-    .DIN    (ADB),		// Input data from ADC
-    .FR	   (AFB),		// Input frame from ADC 
-    .DOUT	(D_s[95:48]),// output data (CLK clocked)
-	 .BSENABLE (!CSR[5]),
-	 .debug  ()
-    );
+		.CLK    	(CLK125),	// global clock
+		.CLKIN  	(ACB),		// input clock from ADC (375 MHz)
+		.DIN    	(ADB),		// Input data from ADC
+		.FR	   (AFB),		// Input frame from ADC 
+		.DOUT		(D_s[95:48]),// output data (CLK clocked)
+		.BSENABLE (1'b1),
+		.debug  	()
+   );
 	adc4rcv DINC_rcv (
-    .CLK    (CLK125),	// global clock
-    .CLKIN  (ACC),		// input clock from ADC (375 MHz)
-    .DIN    (ADC),		// Input data from ADC
-    .FR	   (AFC),		// Input frame from ADC 
-    .DOUT	(D_s[143:96]),	// output data (CLK clocked)
-	 .BSENABLE (!CSR[5]),
-	 .debug  ()
-    );
+		.CLK    	(CLK125),	// global clock
+		.CLKIN  	(ACC),		// input clock from ADC (375 MHz)
+		.DIN    	(ADC),		// Input data from ADC
+		.FR	   (AFC),		// Input frame from ADC 
+		.DOUT		(D_s[143:96]),	// output data (CLK clocked)
+		.BSENABLE (1'b1),
+		.debug  	()
+   );
 	adc4rcv DIND_rcv (
-    .CLK    (CLK125),	// global clock
-    .CLKIN  (ACD),		// input clock from ADC (375 MHz)
-    .DIN    (ADD),		// Input data from ADC
-    .FR	   (AFD),		// Input frame from ADC 
-    .DOUT	(D_s[191:144]),	// output data (CLK clocked)
-	 .BSENABLE (!CSR[5]),
-	 .debug  ()	 
-    );
-	 
-	 assign TP = debug[4:0];
+		.CLK    	(CLK125),	// global clock
+		.CLKIN  	(ACD),		// input clock from ADC (375 MHz)
+		.DIN    	(ADD),		// Input data from ADC
+		.FR	   (AFD),		// Input frame from ADC 
+		.DOUT		(D_s[191:144]),	// output data (CLK clocked)
+		.BSENABLE (1'b1),
+		.debug  	()	 
+   );
 	 
 endmodule

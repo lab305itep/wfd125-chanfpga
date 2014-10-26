@@ -72,19 +72,6 @@ module adc4rcv(
       .IB(CLKIN_s[0])         // 1-bit input: Secondary clock input
    );
 
-/*   BUFIO2 #(
-      .DIVIDE(6),             // DIVCLK divider (1,3-8)
-      .DIVIDE_BYPASS("TRUE"),// Bypass the divider circuitry (TRUE/FALSE)
-      .I_INVERT("TRUE"),     // Invert clock (TRUE/FALSE)
-      .USE_DOUBLER("FALSE")   // Use doubler circuitry (TRUE/FALSE)
-   )
-   BUFIO2_N (
-      .DIVCLK(),      			 // 1-bit output: Divided clock output
-      .IOCLK(CLKIN_2[1]),       	 // 1-bit output: I/O output clock
-      .SERDESSTROBE(), 	 // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      .I(CLKIN_s[0])              // 1-bit input: Clock input (connect to IBUFG)
-   );
-*/
 //		Frame
 	adc1rcv FR_rcv(
     .CLK(CLK),
