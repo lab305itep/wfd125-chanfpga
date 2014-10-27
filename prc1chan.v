@@ -31,8 +31,9 @@
 module prc1chan(
 		input clk,					// 125MHz clock
 		input [11:0] data,		// ADC raw data
-		output reg [11:0] d2sum,// ADC - pedestal
-		output reg [11:0] ped,	// pedestal
+		output [11:0] d2sum,		// ADC - pedestal
+		output reg [11:0] ped = 0,	// pedestal
+		input [11:0] cped,		// common pedestal
 		input [11:0] zthr,		// zero suppression threshold
 		input [11:0] sthr,		// self trigger threshold
 		input [15:0] prescale,	// prescale for self trigger
@@ -40,7 +41,7 @@ module prc1chan(
 		input [9:0] swinbeg,		// self trigger window begin
 		input [7:0] winlen,		// window length
 		input [15:0] trigger,	// master trigger information
-		output reg [15:0] dout,	// data to arbitter
+		output reg [15:0] dout = 0,	// data to arbitter
 		input [5:0] num,			// ADC number
 		output reg req,			// request to arbitter
 		input ack,					// acknowledge from arbitter
@@ -57,20 +58,23 @@ module prc1chan(
 	reg [9:0] raddr = 0;
 	reg [11:0] mem [1023:0];
 	reg [11:0] rdata;
-	reg [15:0] trgdata;
+	reg [15:0] trg_data;
 	reg [10:0] wfaddr = 0;
 	reg [10:0] rfaddr = 0;
 	reg [10:0] swfaddr = 0;
 	reg [10:0] ffaddr = 0;		// the word after the full block
 	reg [11:0] fifo [2047:0];
 	reg [7:0] copied = 0;
-
 	
 //		to total sum
 	always @ (posedge clk) begin
-		pdata <= data - ped;
+		if (data + cped > ped) begin
+			pdata <= data - ped + cped;
+		end else begin
+			pdata <= 0;
+		end
 	end
-	assign d2sum = (smask) ? 0 : pdata;
+	assign d2sum = (smask) ? cped : pdata;
 
 //		pedestal calculation
 	always @ (posedge clk) begin
@@ -98,15 +102,16 @@ module prc1chan(
 	
 	always @ (posedge clk) begin
 		strig <= 0;
-		if (pdata > sthr && !strig_d) begin
+		if (pdata > (sthr + cped) && !strig_d) begin
+			strig_d <= 1;
 			if (presc_cnt == prescale) begin 
 				if (!stmask) strig <= 1;
 				presc_cnt <= 0;
+			end else begin
+				presc_cnt <= presc_cnt + 1;
 			end
-			strig_d <= 1;
-			presc_cnt <= presc_cnt + 1;
 		end
-		if (pdata < sthr) strig_d <= 0;
+		if (pdata < (sthr + cped)) strig_d <= 0;
 	end
 
 //		state mathine definitions
@@ -144,7 +149,8 @@ module prc1chan(
 					trg_state <= ST_IDLE;
 					ffaddr <= wfaddr;
 				end else begin
-					fifo[wfaddr] <= rdata;
+					fifo[wfaddr] <= {4'h0, rdata};
+					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
 				end
@@ -157,7 +163,7 @@ module prc1chan(
 				zthr_flag <= 0;
 			end
 		ST_MTNUM: begin
-				fifo[wfaddr] <= trgdata;
+				fifo[wfaddr] <= trg_data;
 				wfaddr <= wfaddr + 1;
 				trg_state <= ST_MTCOPY;
 				copied <= 0;
@@ -171,13 +177,26 @@ module prc1chan(
 						wfaddr <= swfaddr;
 					end
 				end else begin
-					fifo[wfaddr] <= rdata;
+					fifo[wfaddr] <= {4'h0, rdata};
+					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
-					if (rdata > zthr) zthr_flag <= 1;
+					if (rdata > (zthr + cped)) zthr_flag <= 1;
 				end
 			end
+		default: trg_state <= ST_IDLE;
 		endcase
+	end
+
+//		Fifo to arbitter
+	always @ (negedge clk) begin
+		dout <= fifo[rfaddr];
+		if (rfaddr != ffaddr) begin
+			req <= 1;
+			if (ack) rfaddr <= rfaddr + 1;
+		end else begin
+			req <= 0;
+		end
 	end
 
 endmodule

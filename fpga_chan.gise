@@ -15,7 +15,7 @@
 
   <!--                                                          -->
 
-  <!-- Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved. -->
+  <!-- Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved. -->
 
   <version xmlns="http://www.xilinx.com/XMLSchema">11.1</version>
 
@@ -74,13 +74,13 @@
     <file xil_pn:fileType="FILE_XST" xil_pn:name="inoutreg.xst"/>
     <file xil_pn:fileType="FILE_DIRECTORY" xil_pn:name="isim"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_CMD" xil_pn:name="isim.cmd"/>
-    <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_LOG" xil_pn:name="isim.log"/>
     <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="parreg16.prj"/>
     <file xil_pn:fileType="FILE_XST_STX" xil_pn:name="parreg16.stx"/>
     <file xil_pn:fileType="FILE_XST" xil_pn:name="parreg16.xst"/>
-    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test_wbmaster_beh.prj"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="test1chan_beh.prj"/>
+    <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test1chan_isim_beh.exe"/>
+    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="test1chan_isim_beh.wdb"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="test_wbmaster_isim_beh.exe"/>
-    <file xil_pn:fileType="FILE_ISIM_MISC" xil_pn:name="test_wbmaster_isim_beh.wdb"/>
     <file xil_pn:fileType="FILE_HTML" xil_pn:name="usage_statistics_webtalk.html"/>
     <file xil_pn:fileType="FILE_LOG" xil_pn:name="webtalk.log"/>
     <file xil_pn:fileType="FILE_FITTER_REPORT" xil_pn:name="webtalk_pn.xml"/>
@@ -94,7 +94,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1412351451" xil_pn:in_ck="7332848134962477849" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1412351451">
+    <transform xil_pn:end_ts="1414428253" xil_pn:in_ck="-2728353392614724864" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1414428253">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
@@ -102,6 +102,8 @@
       <status xil_pn:value="InputAdded"/>
       <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
+      <outfile xil_pn:name="../wfd125-mainfpga/gtprcv4.v"/>
+      <outfile xil_pn:name="../wfd125-mainfpga/inoutreg.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_arbiter.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_data_resize.v"/>
@@ -111,18 +113,23 @@
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_slave.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/xspi_master.v"/>
+      <outfile xil_pn:name="adc1rcv.v"/>
+      <outfile xil_pn:name="adc4rcv.v"/>
       <outfile xil_pn:name="fpga_chan.v"/>
+      <outfile xil_pn:name="parreg16.v"/>
+      <outfile xil_pn:name="prc1chan.v"/>
       <outfile xil_pn:name="spi_wbmaster.v"/>
+      <outfile xil_pn:name="test1chan.v"/>
       <outfile xil_pn:name="test_wbmaster.v"/>
       <outfile xil_pn:name="timescale.v"/>
       <outfile xil_pn:name="wb_intercon.v"/>
       <outfile xil_pn:name="wb_intercon.vh"/>
     </transform>
-    <transform xil_pn:end_ts="1412350955" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="5015026573877992251" xil_pn:start_ts="1412350955">
+    <transform xil_pn:end_ts="1414428271" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="-3563242322980903294" xil_pn:start_ts="1414428271">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1412350955" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="7906480166592547065" xil_pn:start_ts="1412350955">
+    <transform xil_pn:end_ts="1414428271" xil_pn:name="TRAN_schematicsToHdlSim" xil_pn:prop_ck="7834131125084668480" xil_pn:start_ts="1414428271">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
@@ -141,7 +148,7 @@
       <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/implement/shared_vio.ngc"/>
       <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11_tile.v"/>
     </transform>
-    <transform xil_pn:end_ts="1412351451" xil_pn:in_ck="-5196329470468343021" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1412351451">
+    <transform xil_pn:end_ts="1414428253" xil_pn:in_ck="-2728353392614724864" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1414428253">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
@@ -149,52 +156,54 @@
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
+      <outfile xil_pn:name="../wfd125-mainfpga/gtprcv4.v"/>
+      <outfile xil_pn:name="../wfd125-mainfpga/inoutreg.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_arbiter.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_data_resize.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_mux.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/frame_check.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/frame_gen.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/mgt_usrclk_source_pll.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/s6_gtpwizard_v1_11_top.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11_tile.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_bit_ctrl.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_byte_ctrl.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_slave.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/xspi_master.v"/>
+      <outfile xil_pn:name="adc1rcv.v"/>
+      <outfile xil_pn:name="adc4rcv.v"/>
       <outfile xil_pn:name="fpga_chan.v"/>
+      <outfile xil_pn:name="parreg16.v"/>
+      <outfile xil_pn:name="prc1chan.v"/>
       <outfile xil_pn:name="spi_wbmaster.v"/>
+      <outfile xil_pn:name="test1chan.v"/>
       <outfile xil_pn:name="test_wbmaster.v"/>
       <outfile xil_pn:name="timescale.v"/>
       <outfile xil_pn:name="wb_intercon.v"/>
       <outfile xil_pn:name="wb_intercon.vh"/>
     </transform>
-    <transform xil_pn:end_ts="1412351454" xil_pn:in_ck="-5196329470468343021" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-1172198160942288139" xil_pn:start_ts="1412351451">
+    <transform xil_pn:end_ts="1414428273" xil_pn:in_ck="-5529017008566193094" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="300887513574047043" xil_pn:start_ts="1414428271">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForProperties"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputAdded"/>
       <status xil_pn:value="InputChanged"/>
       <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="fuse.log"/>
       <outfile xil_pn:name="isim"/>
-      <outfile xil_pn:name="isim.log"/>
-      <outfile xil_pn:name="test_wbmaster_beh.prj"/>
-      <outfile xil_pn:name="test_wbmaster_isim_beh.exe"/>
+      <outfile xil_pn:name="test1chan_beh.prj"/>
+      <outfile xil_pn:name="test1chan_isim_beh.exe"/>
       <outfile xil_pn:name="xilinxsim.ini"/>
     </transform>
-    <transform xil_pn:end_ts="1412351454" xil_pn:in_ck="7756886377012682035" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="-1631802207601182504" xil_pn:start_ts="1412351454">
+    <transform xil_pn:end_ts="1414428273" xil_pn:in_ck="1793413647922372109" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="-2089329111461785594" xil_pn:start_ts="1414428273">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForProperties"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="OutputChanged"/>
       <outfile xil_pn:name="isim.cmd"/>
-      <outfile xil_pn:name="isim.log"/>
-      <outfile xil_pn:name="test_wbmaster_isim_beh.wdb"/>
+      <outfile xil_pn:name="test1chan_isim_beh.wdb"/>
     </transform>
     <transform xil_pn:end_ts="1412072719" xil_pn:name="TRAN_copyInitialToXSTAbstractSynthesis" xil_pn:start_ts="1412072719">
       <status xil_pn:value="SuccessfullyRun"/>

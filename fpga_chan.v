@@ -43,6 +43,7 @@
 // 8 - master trigger window begin
 // 9 - window length
 // 10 - self trigger window begin
+//	11 - common pedestal
 //////////////////////////////////////////////////////////////////////////////////
 module fpga_chan(
     // ADC A
@@ -96,6 +97,7 @@ module fpga_chan(
     output [5:1] TP
     );
 
+`include "fpga_chan.vh"
 //		Wires and registers
 	wire CLK125;
 	wire [191:0] D_s;					// data from ADC
@@ -105,6 +107,12 @@ module fpga_chan(
 	wire [3:0]   gtp_comma_o;		
 	wire [31:0]  CSR;
 	wire [15:0]  par_array [15:0];
+	wire [15:0]  d2arb [15:0];
+	wire [11:0]  d2sum [15:0];
+	wire [11:0]  ped [15:0];
+	wire [15:0]  req2arb;
+	wire [15:0]  ack4arb;
+	reg [15:0]  trigger;
 
 //		WB-bus
 	wire wb_clk;
@@ -280,5 +288,45 @@ module fpga_chan(
 		.BSENABLE (1'b1),
 		.debug  	()	 
    );
-	 
+
+//		channel processing
+	genvar i;
+	generate
+		wire [3:0] ii;
+		assign ii = i;
+		for (i=0; i<16; i = i + 1) begin: UPRC1
+		prc1chan UCHAN (
+			.clk(CLK125), 
+			.data(D_s[12*i+11:12*i]), 
+			.d2sum(d2sum[i]), 
+			.ped(ped[i]), 
+			.zthr(par_array[PAR_ZTHR]), 
+			.sthr(par_array[PAR_STTHR]), 
+			.cped(par_array[PAR_CPED]),
+			.prescale(par_array[PAR_STPRC]), 
+			.winbeg(par_array[PAR_WINBEG]), 
+			.swinbeg(par_array[PAR_SWINBEG]), 
+			.winlen(par_array[PAR_WINLEN]), 
+			.trigger(trigger), 
+			.dout(d2arb[i]), 
+			.num({CHN, ii}), 
+			.req(req2arb[i]), 
+			.ack(ack4arb[i]), 
+			.smask(par_array[PAR_SMASK][i]), 
+			.tmask(par_array[PAR_TMASK][i]), 
+			.stmask(par_array[PAR_STMASK][i])
+		);
+		end
+	endgenerate
+	
+//		get master trigger
+	always @ (posedge CLK125) begin
+		if (gtp_comma_o[0]) begin
+			trigger <= 0;
+		end else begin
+			trigger <= gtp_data_o[15:0];
+		end
+	end
+	
+
 endmodule
