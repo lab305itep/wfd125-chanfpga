@@ -29,22 +29,21 @@ module parreg16(wb_rst, wb_dat_i, wb_dat_o, wb_we, wb_clk, wb_cyc, wb_ack, wb_st
    output reg wb_ack;
    input wb_stb;
 	input [ADRBITS-1:0] wb_adr;
-   output reg [15:0] reg_o [2**(ADRBITS - 1):0];
+   output reg [16*(2**(ADRBITS - 1))-1:0] reg_o;
 	 
 	genvar i;
 	generate
 	for (i = 0; i < 2**(ADRBITS - 1); i = i + 1) begin: UFOR
 		always @ (posedge wb_clk) begin
 			if (wb_adr == i) begin
-				wb_dat_o <= reg_o[i];
-				if (wb_cyc & wb_stb & wb_we) reg_o[i] <= wb_dat_i;
+				wb_dat_o <= reg_o[16*i+15:16*i];
+				if (wb_cyc & wb_stb & wb_we) reg_o[16*i+15:16*i] <= wb_dat_i;
 			end
-			if (wb_rst) reg_o[i] <= 0;
+			if (wb_rst) reg_o[16*i+15:16*i] <= 0;
 		end
 	end
 	endgenerate
 
 	always @ (posedge wb_clk) wb_ack <= wb_cyc & wb_stb;
-
 
 endmodule

@@ -106,13 +106,14 @@ module fpga_chan(
 	wire [63:0]  gtp_data_o; 		// data ftom GTP
 	wire [3:0]   gtp_comma_o;		
 	wire [31:0]  CSR;
-	wire [15:0]  par_array [15:0];
-	wire [15:0]  d2arb [15:0];
-	wire [11:0]  d2sum [15:0];
-	wire [11:0]  ped [15:0];
+	wire [255:0]  par_array;
+	wire [255:0]  d2arb;
+	wire [191:0]  d2sum;
+	wire [191:0]  ped;
 	wire [15:0]  req2arb;
 	wire [15:0]  ack4arb;
-	reg [15:0]  trigger;
+	reg  [15:0]  trigger;
+	wire sum_trig;
 
 //		WB-bus
 	wire wb_clk;
@@ -298,23 +299,23 @@ module fpga_chan(
 		prc1chan UCHAN (
 			.clk(CLK125), 
 			.data(D_s[12*i+11:12*i]), 
-			.d2sum(d2sum[i]), 
-			.ped(ped[i]), 
-			.zthr(par_array[PAR_ZTHR]), 
-			.sthr(par_array[PAR_STTHR]), 
-			.cped(par_array[PAR_CPED]),
-			.prescale(par_array[PAR_STPRC]), 
-			.winbeg(par_array[PAR_WINBEG]), 
-			.swinbeg(par_array[PAR_SWINBEG]), 
-			.winlen(par_array[PAR_WINLEN]), 
+			.d2sum(d2sum[12*i+11:12*i]), 
+			.ped(ped[12*i+11:12*i]), 
+			.zthr(par_array[PAR_ZTHR*16+15:PAR_ZTHR*16]), 
+			.sthr(par_array[PAR_STTHR*16+15:PAR_STTHR*16]), 
+			.cped(par_array[PAR_CPED*16+15:PAR_CPED*16]),
+			.prescale(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
+			.winbeg(par_array[PAR_WINBEG*16+15:PAR_WINBEG*16]), 
+			.swinbeg(par_array[PAR_SWINBEG*16+15:PAR_SWINBEG*16]), 
+			.winlen(par_array[PAR_WINLEN*16+15:PAR_WINLEN*16]), 
 			.trigger(trigger), 
-			.dout(d2arb[i]), 
+			.dout(d2arb[16*i+11:16*i]), 
 			.num({CHN, ii}), 
 			.req(req2arb[i]), 
 			.ack(ack4arb[i]), 
-			.smask(par_array[PAR_SMASK][i]), 
-			.tmask(par_array[PAR_TMASK][i]), 
-			.stmask(par_array[PAR_STMASK][i])
+			.smask(par_array[PAR_SMASK*16+i]), 
+			.tmask(par_array[PAR_TMASK*16+i]), 
+			.stmask(par_array[PAR_STMASK*16+i])
 		);
 		end
 	endgenerate
@@ -327,6 +328,16 @@ module fpga_chan(
 			trigger <= gtp_data_o[15:0];
 		end
 	end
-	
+
+//		arbitter
+	arbitter UARB(
+		.clk(CLK125),
+		.data(d2arb),
+		.dout(gtp_data_i[15:0]),
+		.kchar(gtp_comma_i[0]),
+		.trigger(sum_trig),
+		.req(req2arb),
+		.ack(ack4arb)
+   );
 
 endmodule
