@@ -18,7 +18,7 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
-module parreg16(wb_dat_i, wb_dat_o, wb_we, wb_clk, wb_cyc, wb_ack, wb_stb, wb_adr, reg_o);
+module inpreg16(wb_dat_i, wb_dat_o, wb_we, wb_clk, wb_cyc, wb_ack, wb_stb, wb_adr, reg_i);
 	parameter ADRBITS = 1;
    input [15:0] wb_dat_i;
    output reg [15:0] wb_dat_o;
@@ -28,20 +28,19 @@ module parreg16(wb_dat_i, wb_dat_o, wb_we, wb_clk, wb_cyc, wb_ack, wb_stb, wb_ad
    output reg wb_ack;
    input wb_stb;
 	input [ADRBITS-1:0] wb_adr;
-   output [16*2**ADRBITS - 1:0] reg_o;
+   input [16*2**ADRBITS - 1:0] reg_i;
 	 
-	reg [15:0] register [2**ADRBITS - 1:0];
+	wire [15:0] register [2**ADRBITS - 1:0];
 	
 	genvar i;
 	generate
 	for (i = 0; i < 2**ADRBITS; i = i + 1) begin: UFOR
-		assign reg_o[16*i+15:16*i] = register[i];
+		assign register[i] = reg_i[16*i+15:16*i];
 	end
 	endgenerate
 	
 	always @ (posedge wb_clk) begin
 		wb_dat_o <= register[wb_adr];
-		if (wb_cyc & wb_stb & wb_we) register[wb_adr] <= wb_dat_i;
 		wb_ack <= wb_cyc & wb_stb;
 	end
 

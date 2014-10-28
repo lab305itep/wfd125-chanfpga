@@ -27,47 +27,38 @@ module arbitter(
 		output reg kchar,
 		input trigger,
 		input [15:0] req,
-		output reg [15:0] ack
+		output [15:0] ack
    );
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
 	localparam  CH_TRIG  = 16'h801C;		// K-character K28.0
 
 	reg [3:0] sel = 4'h0;
-	reg    active = 0;
-	reg [15:0] dmux;
-	reg [15:0] amux;
-	reg        rmux;
+	wire [15:0] amux;
+	wire       rmux;
+	reg trigger_t = 0;
+	
+	wire [15:0] data_r [15:0];
+	assign amux = 1 << sel;
+	assign rmux = | (req & amux);
+	assign ack = (!trigger && rmux) ? amux : 0;
 	
 	genvar i;
 	generate
 		for (i=0; i<16; i=i+1) begin: GMUX
-			always @ (*) begin
-				if (sel == i) begin
-					dmux = data[16*i+15:16*i];
-					amux = 1 << i;
-					rmux = req[i];
-				end
-			end
+			assign data_r[i] = data[16*i+15:16*i];
 		end
 	endgenerate
-
+	
 	always @ (posedge clk) begin
-		ack <= 0;
+		trigger_t <= trigger;
 		kchar <= 1;
 		dout <= CH_COMMA;
-		if (trigger) begin
+		if (trigger_t) begin
 			dout <= CH_TRIG;
-		end else if (active) begin 
-			if (rmux) begin
-				dout <= dmux;
-				kchar <= 0;
-				ack <= amux;
-			end else begin
-				active <= 0;
-			end
-		end else if (rmux) begin
-			active <= 1;
+		end else	if (rmux) begin
+			dout <= data_r[sel];
+			kchar <= 0;
 		end else begin
 			sel <= sel + 1;
 		end

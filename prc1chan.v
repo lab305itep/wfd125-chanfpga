@@ -31,15 +31,15 @@
 module prc1chan(
 		input clk,					// 125MHz clock
 		input [11:0] data,		// ADC raw data
-		output [11:0] d2sum,		// ADC - pedestal
+		output reg [11:0] d2sum,	// ADC - pedestal
 		output reg [11:0] ped = 0,	// pedestal
-		input [11:0] cped,		// common pedestal
-		input [11:0] zthr,		// zero suppression threshold
-		input [11:0] sthr,		// self trigger threshold
-		input [15:0] prescale,	// prescale for self trigger
-		input [9:0] winbeg,		// window begin relative to the master trigger
-		input [9:0] swinbeg,		// self trigger window begin
-		input [7:0] winlen,		// window length
+		input [15:0] cped,		// common pedestal (12 bits)
+		input [15:0] zthr,		// zero suppression threshold (12 bits)
+		input [15:0] sthr,		// self trigger threshold (12 bits)
+		input [15:0] prescale,	// prescale for self trigger (16 bits)
+		input [15:0] winbeg,		// window begin relative to the master trigger (10 bits)
+		input [15:0] swinbeg,		// self trigger window begin (10 bits)
+		input [15:0] winlen,		// window length (8 bits)
 		input [15:0] trigger,	// master trigger information
 		output reg [15:0] dout = 0,	// data to arbitter
 		input [5:0] num,			// ADC number
@@ -63,18 +63,19 @@ module prc1chan(
 	reg [10:0] rfaddr = 0;
 	reg [10:0] swfaddr = 0;
 	reg [10:0] ffaddr = 0;		// the word after the full block
-	reg [11:0] fifo [2047:0];
+	reg [10:0] fffaddr = 0;		// the word after the full block clk negedge
+	reg [15:0] fifo [2047:0];
 	reg [7:0] copied = 0;
 	
 //		to total sum
 	always @ (posedge clk) begin
-		if (data + cped > ped) begin
-			pdata <= data - ped + cped;
+		if (data + cped[11:0] > ped) begin
+			pdata <= data - ped + cped[11:0];
 		end else begin
 			pdata <= 0;
 		end
+		d2sum <= ((!smask) && (data > ped)) ? data - ped : 0;		
 	end
-	assign d2sum = (smask) ? cped : pdata;
 
 //		pedestal calculation
 	always @ (posedge clk) begin
@@ -102,7 +103,7 @@ module prc1chan(
 	
 	always @ (posedge clk) begin
 		strig <= 0;
-		if (pdata > (sthr + cped) && !strig_d) begin
+		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
 			strig_d <= 1;
 			if (presc_cnt == prescale) begin 
 				if (!stmask) strig <= 1;
@@ -111,7 +112,7 @@ module prc1chan(
 				presc_cnt <= presc_cnt + 1;
 			end
 		end
-		if (pdata < (sthr + cped)) strig_d <= 0;
+		if (pdata < (sthr[11:0] + cped[11:0])) strig_d <= 0;
 	end
 
 //		state mathine definitions
@@ -124,6 +125,7 @@ module prc1chan(
 	reg zthr_flag = 0;
 
 //		trigger processing
+	reg [15:0] tofifo;
 	always @ (posedge clk) begin
 		case (trg_state) 
 		ST_IDLE: begin
@@ -134,8 +136,8 @@ module prc1chan(
 				end else if (strig) begin
 					trg_state <= ST_STCOPY;
 					swfaddr <= wfaddr;			// save write fifo address if we will have to abort on real trigger
-					raddr <= waddr - swinbeg;
-					fifo[wfaddr] <= {2'b10, num, winlen};	// 2'b10 - self trigger signature
+					raddr <= waddr - swinbeg[9:0];
+					tofifo = {2'b10, num, winlen[7:0]};	// 2'b10 - self trigger signature
 					wfaddr <= wfaddr + 1;
 					copied <= 0;
 				end
@@ -145,31 +147,31 @@ module prc1chan(
 					trg_state <= ST_MTRIG;
 					trg_data <= trigger;
 					wfaddr <= swfaddr;
-				end else if (copied == winlen) begin
+				end else if (copied == winlen[7:0]) begin
 					trg_state <= ST_IDLE;
 					ffaddr <= wfaddr;
 				end else begin
-					fifo[wfaddr] <= {4'h0, rdata};
+					tofifo = {4'h0, rdata};
 					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
 				end
 			end
 		ST_MTRIG: begin
-				fifo[wfaddr] <= {2'b11, num, winlen};	// 2'b11 - master trigger signature
+				tofifo = {2'b11, num, winlen[7:0]};	// 2'b11 - master trigger signature
 				wfaddr <= wfaddr + 1;
-				raddr <= waddr - winbeg;
+				raddr <= waddr - winbeg[9:0];
 				trg_state <= ST_MTNUM;
 				zthr_flag <= 0;
 			end
 		ST_MTNUM: begin
-				fifo[wfaddr] <= trg_data;
+				tofifo = trg_data;
 				wfaddr <= wfaddr + 1;
 				trg_state <= ST_MTCOPY;
 				copied <= 0;
 			end
 		ST_MTCOPY: begin
-				if (copied == winlen) begin
+				if (copied == winlen[7:0]) begin
 					trg_state <= ST_IDLE;
 					if (zthr_flag) begin
 						ffaddr <= wfaddr;
@@ -177,23 +179,25 @@ module prc1chan(
 						wfaddr <= swfaddr;
 					end
 				end else begin
-					fifo[wfaddr] <= {4'h0, rdata};
+					tofifo = {4'h0, rdata};
 					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
-					if (rdata > (zthr + cped)) zthr_flag <= 1;
+					if (rdata > (zthr[11:0] + cped[11:0])) zthr_flag <= 1;
 				end
 			end
 		default: trg_state <= ST_IDLE;
 		endcase
+		fifo[wfaddr] <= tofifo;
 	end
 
 //		Fifo to arbitter
-	always @ (negedge clk) begin
+	always @ (posedge clk) begin
 		dout <= fifo[rfaddr];
-		if (rfaddr != ffaddr) begin
-			req <= 1;
+		fffaddr <= ffaddr;
+		if (rfaddr != fffaddr) begin
 			if (ack) rfaddr <= rfaddr + 1;
+			req <= 1;
 		end else begin
 			req <= 0;
 		end

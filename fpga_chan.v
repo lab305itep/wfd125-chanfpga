@@ -101,15 +101,15 @@ module fpga_chan(
 //		Wires and registers
 	wire CLK125;
 	wire [191:0] D_s;					// data from ADC
-	reg  [63:0]  gtp_data_i = 0;	// data to GTP
-	reg  [3:0]   gtp_comma_i = 4'h0;
+	wire [63:0]  gtp_data_i;		// data to GTP
+	wire [3:0]   gtp_comma_i;
 	wire [63:0]  gtp_data_o; 		// data ftom GTP
 	wire [3:0]   gtp_comma_o;		
 	wire [31:0]  CSR;
 	wire [255:0]  par_array;
 	wire [255:0]  d2arb;
 	wire [191:0]  d2sum;
-	wire [191:0]  ped;
+	wire [255:0]  ped;
 	wire [15:0]  req2arb;
 	wire [15:0]  ack4arb;
 	reg  [15:0]  trigger;
@@ -251,6 +251,22 @@ module fpga_chan(
 	assign wb_s2m_reg_array_err = 0;
 	assign wb_s2m_reg_array_rty = 0;
 	assign wb_s2m_reg_array_dat[31:16] = 16'h0000;
+
+//		input array
+	inpreg16 #(.ADRBITS(4)) inp_array (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_inp_array_adr[5:2]), 
+		.wb_dat_i  (wb_m2s_inp_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_inp_array_dat[15:0]),
+		.wb_we     (wb_m2s_inp_array_we),
+		.wb_stb    (wb_m2s_inp_array_stb),
+		.wb_cyc    (wb_m2s_inp_array_cyc), 
+		.wb_ack    (wb_s2m_inp_array_ack), 
+		.reg_i	  (ped)
+	);
+	assign wb_s2m_inp_array_err = 0;
+	assign wb_s2m_inp_array_rty = 0;
+	assign wb_s2m_inp_array_dat[31:16] = 16'h0000;
 	
 //	ADC receivers
 	adc4rcv DINA_rcv (
@@ -293,14 +309,12 @@ module fpga_chan(
 //		channel processing
 	genvar i;
 	generate
-		wire [3:0] ii;
-		assign ii = i;
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
 			.clk(CLK125), 
 			.data(D_s[12*i+11:12*i]), 
 			.d2sum(d2sum[12*i+11:12*i]), 
-			.ped(ped[12*i+11:12*i]), 
+			.ped(ped[16*i+11:16*i]), 
 			.zthr(par_array[PAR_ZTHR*16+15:PAR_ZTHR*16]), 
 			.sthr(par_array[PAR_STTHR*16+15:PAR_STTHR*16]), 
 			.cped(par_array[PAR_CPED*16+15:PAR_CPED*16]),
@@ -309,8 +323,8 @@ module fpga_chan(
 			.swinbeg(par_array[PAR_SWINBEG*16+15:PAR_SWINBEG*16]), 
 			.winlen(par_array[PAR_WINLEN*16+15:PAR_WINLEN*16]), 
 			.trigger(trigger), 
-			.dout(d2arb[16*i+11:16*i]), 
-			.num({CHN, ii}), 
+			.dout(d2arb[16*i+15:16*i]), 
+			.num((CHN << 4) + i), 
 			.req(req2arb[i]), 
 			.ack(ack4arb[i]), 
 			.smask(par_array[PAR_SMASK*16+i]), 
@@ -338,6 +352,23 @@ module fpga_chan(
 		.trigger(sum_trig),
 		.req(req2arb),
 		.ack(ack4arb)
+   );
+
+//		Summa and trigger
+	wire [15:0] sum2gtp;
+	wire comma2gtp;
+	assign gtp_data_i[63:16] = {sum2gtp, sum2gtp, sum2gtp};
+	assign gtp_comma_i[3:1] = {comma2gtp, comma2gtp, comma2gtp};
+	sumcalc #(.XDELAY(7)) USCALC (
+		.clk(CLK125),						// master clock
+		.data(d2sum),						// input data
+		.sumdata(gtp_data_o[63:16]),	// sums from 3 other xilinxes
+		.xcomma(gtp_comma_o[3:1]),		// commas from other xilinxes
+		.sumres(sum2gtp),					// 16-channel sum
+		.sumcomma(comma2gtp),			// comma / data
+		.s16thr(par_array[PAR_STHR*16+15:PAR_STHR*16]),		// 16-channel sum threshold
+		.s64thr(par_array[PAR_MTTHR*16+15:PAR_MTTHR*16]),	// 64-channel sum threshold
+		.trigout(sum_trig)				// 64-channel trigger
    );
 
 endmodule

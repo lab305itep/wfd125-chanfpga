@@ -29,10 +29,15 @@ module testarb;
 	reg [255:0] data;
 	reg trigger;
 	reg [15:0] req;
+	reg [10:0] rfaddr;
+	reg [10:0] ffaddr;
+	reg [10:0] fffaddr;
 	
 	wire [15:0] dout;
 	wire [15:0] ack;
 	wire kchar;
+	integer i;
+	reg [15:0] fifo [2047:0];
 
 	// Instantiate the Unit Under Test (UUT)
 	arbitter uut (
@@ -51,19 +56,38 @@ module testarb;
 		req = 0;
 		trigger = 0;
 		data = 0;
-		data[47:32] = 16'h1234;
+		rfaddr = 0;
+		ffaddr = 0;
+		fffaddr = 0;
+		
+		for (i=0; i<2048; i = i + 1) fifo[i] = i;
 		
 		// Wait 100 ns for global reset to finish
-		#102;
+		#100;
 		// Add stimulus here
-		forever begin
-			#320; req[2] <= 1;
-			#200; req[2] <= 0;
-      end  
+		ffaddr = 10;
+
+
+		#100;
+		trigger = 1;
+		#8;
+		trigger = 0;
 
 	end
       
 	always @ (*) #4 clk <= !clk;
+
+//		Fifo to arbitter
+	always @ (posedge clk) begin
+		data[47:32] <= fifo[rfaddr];
+		fffaddr <= ffaddr;
+		if (rfaddr != fffaddr) begin
+			if (ack[2]) rfaddr <= rfaddr + 1;
+			req[2] <= 1;
+		end else begin
+			req[2] <= 0;
+		end
+	end
 		
 endmodule
 
