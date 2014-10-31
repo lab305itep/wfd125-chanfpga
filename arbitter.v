@@ -37,6 +37,7 @@ module arbitter(
 	wire [15:0] amux;
 	wire       rmux;
 	reg trigger_t = 0;
+	reg dvalid = 0;
 	
 	wire [15:0] data_r [15:0];
 	assign amux = 1 << sel;
@@ -54,12 +55,13 @@ module arbitter(
 		trigger_t <= trigger;
 		kchar <= 1;
 		dout <= CH_COMMA;
+		dvalid <= rmux;
 		if (trigger_t) begin
 			dout <= CH_TRIG;
-		end else	if (rmux) begin
+		end else	if (dvalid) begin
 			dout <= data_r[sel];
 			kchar <= 0;
-		end else begin
+		end else if (!rmux) begin
 			sel <= sel + 1;
 		end
 	end

@@ -63,12 +63,12 @@ module testarb;
 		for (i=0; i<2048; i = i + 1) fifo[i] = i;
 		
 		// Wait 100 ns for global reset to finish
-		#100;
+		#200;
 		// Add stimulus here
 		ffaddr = 10;
 
 
-		#100;
+		#40;
 		trigger = 1;
 		#8;
 		trigger = 0;

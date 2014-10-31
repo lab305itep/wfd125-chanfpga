@@ -50,7 +50,7 @@ module prc1chan(
 		input stmask				// 1 bit mask for self trigger
    );
 
-	localparam PBITS = 10;
+	localparam PBITS = 16;
 	reg [PBITS+11:0] pedsum = 0;
 	reg [PBITS-1:0] pedcnt = 0;
 	reg [11:0] pdata = 0;
@@ -151,7 +151,7 @@ module prc1chan(
 					trg_state <= ST_IDLE;
 					ffaddr <= wfaddr;
 				end else begin
-					tofifo = {4'h0, rdata};
+					tofifo = copied; // {4'h0, rdata};
 					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
