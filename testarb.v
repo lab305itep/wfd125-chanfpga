@@ -68,7 +68,7 @@ module testarb;
 		ffaddr = 10;
 
 
-		#40;
+		#120;
 		trigger = 1;
 		#8;
 		trigger = 0;
@@ -81,11 +81,10 @@ module testarb;
 	always @ (posedge clk) begin
 		data[47:32] <= fifo[rfaddr];
 		fffaddr <= ffaddr;
+		req[2] <= 0;
 		if (rfaddr != fffaddr) begin
 			if (ack[2]) rfaddr <= rfaddr + 1;
-			req[2] <= 1;
-		end else begin
-			req[2] <= 0;
+			if (rfaddr + 1 != fffaddr) req[2] <= 1;
 		end
 	end
 		

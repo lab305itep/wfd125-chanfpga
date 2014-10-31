@@ -192,14 +192,15 @@ module prc1chan(
 	end
 
 //		Fifo to arbitter
+	wire [10:0] rfaddrp;
+	assign rfaddrp = rfaddr + 1;
 	always @ (posedge clk) begin
 		dout <= fifo[rfaddr];
 		fffaddr <= ffaddr;
+		req <= 0;
 		if (rfaddr != fffaddr) begin
 			if (ack) rfaddr <= rfaddr + 1;
-			req <= 1;
-		end else begin
-			req <= 0;
+			if (rfaddrp != fffaddr) req <= 1;
 		end
 	end
 
