@@ -12,30 +12,18 @@ wire [31:0] wb_s2m_spi_master_dat;
 wire        wb_s2m_spi_master_ack;
 wire        wb_s2m_spi_master_err;
 wire        wb_s2m_spi_master_rty;
-wire [31:0] wb_m2s_inp_array_adr;
-wire [31:0] wb_m2s_inp_array_dat;
-wire  [3:0] wb_m2s_inp_array_sel;
-wire        wb_m2s_inp_array_we;
-wire        wb_m2s_inp_array_cyc;
-wire        wb_m2s_inp_array_stb;
-wire  [2:0] wb_m2s_inp_array_cti;
-wire  [1:0] wb_m2s_inp_array_bte;
-wire [31:0] wb_s2m_inp_array_dat;
-wire        wb_s2m_inp_array_ack;
-wire        wb_s2m_inp_array_err;
-wire        wb_s2m_inp_array_rty;
-wire [31:0] wb_m2s_i2c_clk_adr;
-wire  [7:0] wb_m2s_i2c_clk_dat;
-wire  [3:0] wb_m2s_i2c_clk_sel;
-wire        wb_m2s_i2c_clk_we;
-wire        wb_m2s_i2c_clk_cyc;
-wire        wb_m2s_i2c_clk_stb;
-wire  [2:0] wb_m2s_i2c_clk_cti;
-wire  [1:0] wb_m2s_i2c_clk_bte;
-wire  [7:0] wb_s2m_i2c_clk_dat;
-wire        wb_s2m_i2c_clk_ack;
-wire        wb_s2m_i2c_clk_err;
-wire        wb_s2m_i2c_clk_rty;
+wire [31:0] wb_m2s_err_array_adr;
+wire [31:0] wb_m2s_err_array_dat;
+wire  [3:0] wb_m2s_err_array_sel;
+wire        wb_m2s_err_array_we;
+wire        wb_m2s_err_array_cyc;
+wire        wb_m2s_err_array_stb;
+wire  [2:0] wb_m2s_err_array_cti;
+wire  [1:0] wb_m2s_err_array_bte;
+wire [31:0] wb_s2m_err_array_dat;
+wire        wb_s2m_err_array_ack;
+wire        wb_s2m_err_array_err;
+wire        wb_s2m_err_array_rty;
 wire [31:0] wb_m2s_reg_csr_adr;
 wire [31:0] wb_m2s_reg_csr_dat;
 wire  [3:0] wb_m2s_reg_csr_sel;
@@ -48,6 +36,30 @@ wire [31:0] wb_s2m_reg_csr_dat;
 wire        wb_s2m_reg_csr_ack;
 wire        wb_s2m_reg_csr_err;
 wire        wb_s2m_reg_csr_rty;
+wire [31:0] wb_m2s_i2c_clk_adr;
+wire  [7:0] wb_m2s_i2c_clk_dat;
+wire  [3:0] wb_m2s_i2c_clk_sel;
+wire        wb_m2s_i2c_clk_we;
+wire        wb_m2s_i2c_clk_cyc;
+wire        wb_m2s_i2c_clk_stb;
+wire  [2:0] wb_m2s_i2c_clk_cti;
+wire  [1:0] wb_m2s_i2c_clk_bte;
+wire  [7:0] wb_s2m_i2c_clk_dat;
+wire        wb_s2m_i2c_clk_ack;
+wire        wb_s2m_i2c_clk_err;
+wire        wb_s2m_i2c_clk_rty;
+wire [31:0] wb_m2s_ped_array_adr;
+wire [31:0] wb_m2s_ped_array_dat;
+wire  [3:0] wb_m2s_ped_array_sel;
+wire        wb_m2s_ped_array_we;
+wire        wb_m2s_ped_array_cyc;
+wire        wb_m2s_ped_array_stb;
+wire  [2:0] wb_m2s_ped_array_cti;
+wire  [1:0] wb_m2s_ped_array_bte;
+wire [31:0] wb_s2m_ped_array_dat;
+wire        wb_s2m_ped_array_ack;
+wire        wb_s2m_ped_array_err;
+wire        wb_s2m_ped_array_rty;
 wire [31:0] wb_m2s_adc_spi_adr;
 wire [31:0] wb_m2s_adc_spi_dat;
 wire  [3:0] wb_m2s_adc_spi_sel;
@@ -88,30 +100,18 @@ wb_intercon wb_intercon0
     .wb_spi_master_ack_o (wb_s2m_spi_master_ack),
     .wb_spi_master_err_o (wb_s2m_spi_master_err),
     .wb_spi_master_rty_o (wb_s2m_spi_master_rty),
-    .wb_inp_array_adr_o  (wb_m2s_inp_array_adr),
-    .wb_inp_array_dat_o  (wb_m2s_inp_array_dat),
-    .wb_inp_array_sel_o  (wb_m2s_inp_array_sel),
-    .wb_inp_array_we_o   (wb_m2s_inp_array_we),
-    .wb_inp_array_cyc_o  (wb_m2s_inp_array_cyc),
-    .wb_inp_array_stb_o  (wb_m2s_inp_array_stb),
-    .wb_inp_array_cti_o  (wb_m2s_inp_array_cti),
-    .wb_inp_array_bte_o  (wb_m2s_inp_array_bte),
-    .wb_inp_array_dat_i  (wb_s2m_inp_array_dat),
-    .wb_inp_array_ack_i  (wb_s2m_inp_array_ack),
-    .wb_inp_array_err_i  (wb_s2m_inp_array_err),
-    .wb_inp_array_rty_i  (wb_s2m_inp_array_rty),
-    .wb_i2c_clk_adr_o    (wb_m2s_i2c_clk_adr),
-    .wb_i2c_clk_dat_o    (wb_m2s_i2c_clk_dat),
-    .wb_i2c_clk_sel_o    (wb_m2s_i2c_clk_sel),
-    .wb_i2c_clk_we_o     (wb_m2s_i2c_clk_we),
-    .wb_i2c_clk_cyc_o    (wb_m2s_i2c_clk_cyc),
-    .wb_i2c_clk_stb_o    (wb_m2s_i2c_clk_stb),
-    .wb_i2c_clk_cti_o    (wb_m2s_i2c_clk_cti),
-    .wb_i2c_clk_bte_o    (wb_m2s_i2c_clk_bte),
-    .wb_i2c_clk_dat_i    (wb_s2m_i2c_clk_dat),
-    .wb_i2c_clk_ack_i    (wb_s2m_i2c_clk_ack),
-    .wb_i2c_clk_err_i    (wb_s2m_i2c_clk_err),
-    .wb_i2c_clk_rty_i    (wb_s2m_i2c_clk_rty),
+    .wb_err_array_adr_o  (wb_m2s_err_array_adr),
+    .wb_err_array_dat_o  (wb_m2s_err_array_dat),
+    .wb_err_array_sel_o  (wb_m2s_err_array_sel),
+    .wb_err_array_we_o   (wb_m2s_err_array_we),
+    .wb_err_array_cyc_o  (wb_m2s_err_array_cyc),
+    .wb_err_array_stb_o  (wb_m2s_err_array_stb),
+    .wb_err_array_cti_o  (wb_m2s_err_array_cti),
+    .wb_err_array_bte_o  (wb_m2s_err_array_bte),
+    .wb_err_array_dat_i  (wb_s2m_err_array_dat),
+    .wb_err_array_ack_i  (wb_s2m_err_array_ack),
+    .wb_err_array_err_i  (wb_s2m_err_array_err),
+    .wb_err_array_rty_i  (wb_s2m_err_array_rty),
     .wb_reg_csr_adr_o    (wb_m2s_reg_csr_adr),
     .wb_reg_csr_dat_o    (wb_m2s_reg_csr_dat),
     .wb_reg_csr_sel_o    (wb_m2s_reg_csr_sel),
@@ -124,6 +124,30 @@ wb_intercon wb_intercon0
     .wb_reg_csr_ack_i    (wb_s2m_reg_csr_ack),
     .wb_reg_csr_err_i    (wb_s2m_reg_csr_err),
     .wb_reg_csr_rty_i    (wb_s2m_reg_csr_rty),
+    .wb_i2c_clk_adr_o    (wb_m2s_i2c_clk_adr),
+    .wb_i2c_clk_dat_o    (wb_m2s_i2c_clk_dat),
+    .wb_i2c_clk_sel_o    (wb_m2s_i2c_clk_sel),
+    .wb_i2c_clk_we_o     (wb_m2s_i2c_clk_we),
+    .wb_i2c_clk_cyc_o    (wb_m2s_i2c_clk_cyc),
+    .wb_i2c_clk_stb_o    (wb_m2s_i2c_clk_stb),
+    .wb_i2c_clk_cti_o    (wb_m2s_i2c_clk_cti),
+    .wb_i2c_clk_bte_o    (wb_m2s_i2c_clk_bte),
+    .wb_i2c_clk_dat_i    (wb_s2m_i2c_clk_dat),
+    .wb_i2c_clk_ack_i    (wb_s2m_i2c_clk_ack),
+    .wb_i2c_clk_err_i    (wb_s2m_i2c_clk_err),
+    .wb_i2c_clk_rty_i    (wb_s2m_i2c_clk_rty),
+    .wb_ped_array_adr_o  (wb_m2s_ped_array_adr),
+    .wb_ped_array_dat_o  (wb_m2s_ped_array_dat),
+    .wb_ped_array_sel_o  (wb_m2s_ped_array_sel),
+    .wb_ped_array_we_o   (wb_m2s_ped_array_we),
+    .wb_ped_array_cyc_o  (wb_m2s_ped_array_cyc),
+    .wb_ped_array_stb_o  (wb_m2s_ped_array_stb),
+    .wb_ped_array_cti_o  (wb_m2s_ped_array_cti),
+    .wb_ped_array_bte_o  (wb_m2s_ped_array_bte),
+    .wb_ped_array_dat_i  (wb_s2m_ped_array_dat),
+    .wb_ped_array_ack_i  (wb_s2m_ped_array_ack),
+    .wb_ped_array_err_i  (wb_s2m_ped_array_err),
+    .wb_ped_array_rty_i  (wb_s2m_ped_array_rty),
     .wb_adc_spi_adr_o    (wb_m2s_adc_spi_adr),
     .wb_adc_spi_dat_o    (wb_m2s_adc_spi_dat),
     .wb_adc_spi_sel_o    (wb_m2s_adc_spi_sel),

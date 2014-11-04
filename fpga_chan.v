@@ -30,7 +30,9 @@
 //	 0 - trigger from the communication Xilinx
 //  3:1 - summs from the other Xilinxes.
 //		CSR bits:
-//		
+//	3:0 - pattern for ADC receiver check
+//	6   - check count enable
+//	7   - check count reset
 //		Array registers:
 //	0 - summ mask
 // 1 - trigger mask
@@ -109,7 +111,8 @@ module fpga_chan(
 	wire [255:0]  par_array;
 	wire [255:0]  d2arb;
 	wire [191:0]  d2sum;
-	wire [255:0]  ped;
+	wire [255:0]  adc_ped;
+	wire [255:0]  adc_err;
 	wire [15:0]  req2arb;
 	wire [15:0]  ack4arb;
 	reg  [15:0]  trigger;
@@ -252,21 +255,37 @@ module fpga_chan(
 	assign wb_s2m_reg_array_rty = 0;
 	assign wb_s2m_reg_array_dat[31:16] = 16'h0000;
 
-//		input array
-	inpreg16 #(.ADRBITS(4)) inp_array (
+//		input array for pedestals
+	inpreg16 #(.ADRBITS(4)) ped_array (
 		.wb_clk    (wb_clk), 
-		.wb_adr    (wb_m2s_inp_array_adr[5:2]), 
-		.wb_dat_i  (wb_m2s_inp_array_dat[15:0]), 
-		.wb_dat_o  (wb_s2m_inp_array_dat[15:0]),
-		.wb_we     (wb_m2s_inp_array_we),
-		.wb_stb    (wb_m2s_inp_array_stb),
-		.wb_cyc    (wb_m2s_inp_array_cyc), 
-		.wb_ack    (wb_s2m_inp_array_ack), 
-		.reg_i	  (ped)
+		.wb_adr    (wb_m2s_ped_array_adr[5:2]), 
+		.wb_dat_i  (wb_m2s_ped_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_ped_array_dat[15:0]),
+		.wb_we     (wb_m2s_ped_array_we),
+		.wb_stb    (wb_m2s_ped_array_stb),
+		.wb_cyc    (wb_m2s_ped_array_cyc), 
+		.wb_ack    (wb_s2m_ped_array_ack), 
+		.reg_i	  (adc_ped)
 	);
-	assign wb_s2m_inp_array_err = 0;
-	assign wb_s2m_inp_array_rty = 0;
-	assign wb_s2m_inp_array_dat[31:16] = 16'h0000;
+	assign wb_s2m_ped_array_err = 0;
+	assign wb_s2m_ped_array_rty = 0;
+	assign wb_s2m_ped_array_dat[31:16] = 16'h0000;
+
+//		input array for ADC error counters
+	inpreg16 #(.ADRBITS(4)) err_array (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_err_array_adr[5:2]), 
+		.wb_dat_i  (wb_m2s_err_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_err_array_dat[15:0]),
+		.wb_we     (wb_m2s_err_array_we),
+		.wb_stb    (wb_m2s_err_array_stb),
+		.wb_cyc    (wb_m2s_err_array_cyc), 
+		.wb_ack    (wb_s2m_err_array_ack), 
+		.reg_i	  (adc_err)
+	);
+	assign wb_s2m_err_array_err = 0;
+	assign wb_s2m_err_array_rty = 0;
+	assign wb_s2m_err_array_dat[31:16] = 16'h0000;
 	
 //	ADC receivers
 	adc4rcv DINA_rcv (
@@ -314,7 +333,7 @@ module fpga_chan(
 			.clk(CLK125), 
 			.data(D_s[12*i+11:12*i]), 
 			.d2sum(d2sum[12*i+11:12*i]), 
-			.ped(ped[16*i+11:16*i]), 
+			.ped(adc_ped[16*i+11:16*i]), 
 			.zthr(par_array[PAR_ZTHR*16+15:PAR_ZTHR*16]), 
 			.sthr(par_array[PAR_STTHR*16+15:PAR_STTHR*16]), 
 			.cped(par_array[PAR_CPED*16+15:PAR_CPED*16]),
@@ -330,6 +349,15 @@ module fpga_chan(
 			.smask(par_array[PAR_SMASK*16+i]), 
 			.tmask(par_array[PAR_TMASK*16+i]), 
 			.stmask(par_array[PAR_STMASK*16+i])
+		);
+		assign adc_ped[16*i+15:16*i+12] = 0;
+		adccheck UCHECK (
+			.data(D_s[12*i+11:12*i]),	// ADC data received
+			.clk(CLK125),					// ADC clock
+			.cnt(adc_err[16*i+15:16*i]),	//	Error counter
+			.count(CSR[6]),				// Count errors enable
+			.reset(CSR[7]),				// Reset error counter
+			.type(CSR[3:0])	
 		);
 		end
 	endgenerate
