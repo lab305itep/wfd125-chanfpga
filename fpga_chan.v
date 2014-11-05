@@ -31,8 +31,8 @@
 //  3:1 - summs from the other Xilinxes.
 //		CSR bits:
 //	3:0 - pattern for ADC receiver check
-//	6   - check count enable
-//	7   - check count reset
+//	6:4 - counter max = 2**(16 + 2*CSR[6:4])
+//	7   - check start - edge sensitive  (ready on read)
 //		Array registers:
 //	0 - summ mask
 // 1 - trigger mask
@@ -117,6 +117,9 @@ module fpga_chan(
 	wire [15:0]  ack4arb;
 	reg  [15:0]  trigger;
 	wire sum_trig;
+	wire seq_ready;
+	wire seq_reset;
+	wire seq_enable;
 
 //		WB-bus
 	wire wb_clk;
@@ -233,7 +236,7 @@ module fpga_chan(
 		.wb_stb    (wb_m2s_reg_csr_stb),
 		.wb_cyc    (wb_m2s_reg_csr_cyc), 
 		.wb_ack    (wb_s2m_reg_csr_ack), 
-		.reg_i	  (CSR),
+		.reg_i	  ({CSR[31:8], seq_ready, CSR[6:0]}),
 		.reg_o	  (CSR)
 	);
 	assign wb_s2m_reg_csr_err = 0;
@@ -355,8 +358,8 @@ module fpga_chan(
 			.data(D_s[12*i+11:12*i]),	// ADC data received
 			.clk(CLK125),					// ADC clock
 			.cnt(adc_err[16*i+15:16*i]),	//	Error counter
-			.count(CSR[6]),				// Count errors enable
-			.reset(CSR[7]),				// Reset error counter
+			.count(seq_enaqble),			// Count errors enable
+			.reset(seq_reset),			// Reset error counter
 			.type(CSR[3:0])	
 		);
 		end
@@ -370,6 +373,16 @@ module fpga_chan(
 			trigger <= gtp_data_o[15:0];
 		end
 	end
+
+//		Pattern check sequencer
+	checkseq USEQ(
+		.clk(CLK125),		// system clock
+		.start(CSR[7]),	// start
+		.cntmax(CSR[6:4]),
+		.reset(seq_reset),
+		.enable(seq_enable),
+		.ready(seq_ready)
+	);
 
 //		arbitter
 	arbitter UARB(
