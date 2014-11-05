@@ -151,7 +151,7 @@ module prc1chan(
 					trg_state <= ST_IDLE;
 					ffaddr <= wfaddr;
 				end else begin
-					tofifo = copied; // {4'h0, rdata};
+					tofifo = {4'h0, rdata};
 					raddr <= raddr + 1;
 					wfaddr <= wfaddr + 1;
 					copied <= copied + 1;
