@@ -24,7 +24,8 @@
 //		6 - PN9  ITU 0.150 X**9  + X**5 + 1
 //		7 - One-/zero-word toggle (0xFFF / 0)
 //		9 - 0xAAA
-//		10 - 1×sync  0000 0111 1111 
+//		10 - 1×sync  0000 0011 1111 
+//		12 - Mixed frequency 1010 0011 0011
 //////////////////////////////////////////////////////////////////////////////////
 module adccheck(
 		input [11:0] data,		// ADC data received
@@ -63,7 +64,8 @@ module adccheck(
 			4'h6  : data_p <= np9;
 			4'h7  : data_p <= (data_d == 12'hFFF) ? 0 : 12'hFFF;
 			4'h9  : data_p <= 12'hAAA;
-			4'hA  : data_p <= 12'h07F;
+			4'hA  : data_p <= 12'h03F;
+			4'hC	: data_p <= 12'hA33;
 			default : data_p <= data;
 		endcase
 		if (reset) begin

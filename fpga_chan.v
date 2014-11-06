@@ -33,6 +33,9 @@
 //	3:0 - pattern for ADC receiver check
 //	6:4 - counter max = 2**(16 + 2*CSR[6:4])
 //	7   - check start - edge sensitive  (ready on read)
+//	8   - increment IODELAY2
+//	9   - reset IODELAY2
+//	10  - calibrate IODELAY2
 //		Array registers:
 //	0 - summ mask
 // 1 - trigger mask
@@ -120,6 +123,9 @@ module fpga_chan(
 	wire seq_ready;
 	wire seq_reset;
 	wire seq_enable;
+	wire del_cal;
+	wire del_rst;
+	wire del_ce;
 
 //		WB-bus
 	wire wb_clk;
@@ -289,6 +295,17 @@ module fpga_chan(
 	assign wb_s2m_err_array_err = 0;
 	assign wb_s2m_err_array_rty = 0;
 	assign wb_s2m_err_array_dat[31:16] = 16'h0000;
+
+//		control IODELAYS
+	iodelaypulse UDEL(
+		.clk(CLK125),
+		.reset(CSR[9]),
+		.pulse(CSR[8]),
+		.cal(CSR[10]),
+		.del_ce(del_ce),
+		.del_rst(del_rst),
+		.del_cal(del_cal)
+	);
 	
 //	ADC receivers
 	adc4rcv DINA_rcv (
@@ -298,6 +315,9 @@ module fpga_chan(
 		.FR	  	(AFA),		// Input frame from ADC 
 		.DOUT		(D_s[47:0]),	// output data (CLK clocked)
 		.BSENABLE (1'b1),
+		.del_ce	(del_ce),
+		.del_rst	(del_rst),
+		.del_cal	(del_cal),
 		.debug  	()
 	);
 	adc4rcv DINB_rcv (
@@ -307,6 +327,9 @@ module fpga_chan(
 		.FR	   (AFB),		// Input frame from ADC 
 		.DOUT		(D_s[95:48]),// output data (CLK clocked)
 		.BSENABLE (1'b1),
+		.del_ce	(del_ce),
+		.del_rst	(del_rst),
+		.del_cal	(del_cal),
 		.debug  	()
    );
 	adc4rcv DINC_rcv (
@@ -316,6 +339,9 @@ module fpga_chan(
 		.FR	   (AFC),		// Input frame from ADC 
 		.DOUT		(D_s[143:96]),	// output data (CLK clocked)
 		.BSENABLE (1'b1),
+		.del_ce	(del_ce),
+		.del_rst	(del_rst),
+		.del_cal	(del_cal),
 		.debug  	()
    );
 	adc4rcv DIND_rcv (
@@ -325,6 +351,9 @@ module fpga_chan(
 		.FR	   (AFD),		// Input frame from ADC 
 		.DOUT		(D_s[191:144]),	// output data (CLK clocked)
 		.BSENABLE (1'b1),
+		.del_ce	(del_ce),
+		.del_rst	(del_rst),
+		.del_cal	(del_cal),
 		.debug  	()	 
    );
 
@@ -358,7 +387,7 @@ module fpga_chan(
 			.data(D_s[12*i+11:12*i]),	// ADC data received
 			.clk(CLK125),					// ADC clock
 			.cnt(adc_err[16*i+15:16*i]),	//	Error counter
-			.count(seq_enaqble),			// Count errors enable
+			.count(seq_enable),			// Count errors enable
 			.reset(seq_reset),			// Reset error counter
 			.type(CSR[3:0])	
 		);

@@ -21,14 +21,17 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module adc4rcv(
-    input         CLK,		// global clock
-    input  [1:0]  CLKIN,	// input clock from ADC (375 MHz)
-    input  [15:0] DIN,		// Input data from ADC
-    input  [1:0]  FR,		// Input frame from ADC 
-    output [47:0] DOUT,		// output data (CLK clocked)
-	 input         BSENABLE,
-	 output [9:0]	debug
-    );
+		input         	CLK,		// global clock
+		input  [1:0]  	CLKIN,	// input clock from ADC (375 MHz)
+		input  [15:0] 	DIN,		// Input data from ADC
+		input  [1:0]  	FR,		// Input frame from ADC 
+		output [47:0] 	DOUT,		// output data (CLK clocked)
+		input         	BSENABLE,
+		input del_ce,
+		input del_rst,
+		input del_cal,
+		output [9:0]	debug
+	);
 	 
 	 parameter [5:0] FRAME = 6'b111000;
 	 wire [1:0] CLKIN_s;
@@ -74,14 +77,17 @@ module adc4rcv(
 
 //		Frame
 	adc1rcv FR_rcv(
-    .CLK(CLK),
-    .CLKIN(CLKIN_2),
-    .DIN(FR),
-    .DOUT(FR_r),
-	 .BS(BS),
-	 .IOCE(IOCE),
-	 .debug(debug[1])
-    );
+		.CLK(CLK),
+		.CLKIN(CLKIN_2),
+		.DIN(FR),
+		.DOUT(FR_r),
+		.BS(BS),
+		.IOCE(IOCE),
+		.del_ce(del_ce),
+		.del_rst(del_rst),
+		.del_cal(del_cal),
+		.debug(debug[1])
+	);
 	 
 	 assign debug[9:2] = {2'b0, FR_r};
 	 
@@ -108,6 +114,9 @@ module adc4rcv(
 			.DOUT(DOUT[6*i+5:6*i]),
 			.BS(BS),
 			.IOCE(IOCE),
+			.del_ce(del_ce),
+			.del_rst(del_rst),
+			.del_cal(del_cal),
 			.debug()
 		);
       end
