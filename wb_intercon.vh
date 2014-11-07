@@ -60,6 +60,18 @@ wire [31:0] wb_s2m_ped_array_dat;
 wire        wb_s2m_ped_array_ack;
 wire        wb_s2m_ped_array_err;
 wire        wb_s2m_ped_array_rty;
+wire [31:0] wb_m2s_bs_array_adr;
+wire [31:0] wb_m2s_bs_array_dat;
+wire  [3:0] wb_m2s_bs_array_sel;
+wire        wb_m2s_bs_array_we;
+wire        wb_m2s_bs_array_cyc;
+wire        wb_m2s_bs_array_stb;
+wire  [2:0] wb_m2s_bs_array_cti;
+wire  [1:0] wb_m2s_bs_array_bte;
+wire [31:0] wb_s2m_bs_array_dat;
+wire        wb_s2m_bs_array_ack;
+wire        wb_s2m_bs_array_err;
+wire        wb_s2m_bs_array_rty;
 wire [31:0] wb_m2s_adc_spi_adr;
 wire [31:0] wb_m2s_adc_spi_dat;
 wire  [3:0] wb_m2s_adc_spi_sel;
@@ -148,6 +160,18 @@ wb_intercon wb_intercon0
     .wb_ped_array_ack_i  (wb_s2m_ped_array_ack),
     .wb_ped_array_err_i  (wb_s2m_ped_array_err),
     .wb_ped_array_rty_i  (wb_s2m_ped_array_rty),
+    .wb_bs_array_adr_o   (wb_m2s_bs_array_adr),
+    .wb_bs_array_dat_o   (wb_m2s_bs_array_dat),
+    .wb_bs_array_sel_o   (wb_m2s_bs_array_sel),
+    .wb_bs_array_we_o    (wb_m2s_bs_array_we),
+    .wb_bs_array_cyc_o   (wb_m2s_bs_array_cyc),
+    .wb_bs_array_stb_o   (wb_m2s_bs_array_stb),
+    .wb_bs_array_cti_o   (wb_m2s_bs_array_cti),
+    .wb_bs_array_bte_o   (wb_m2s_bs_array_bte),
+    .wb_bs_array_dat_i   (wb_s2m_bs_array_dat),
+    .wb_bs_array_ack_i   (wb_s2m_bs_array_ack),
+    .wb_bs_array_err_i   (wb_s2m_bs_array_err),
+    .wb_bs_array_rty_i   (wb_s2m_bs_array_rty),
     .wb_adc_spi_adr_o    (wb_m2s_adc_spi_adr),
     .wb_adc_spi_dat_o    (wb_m2s_adc_spi_dat),
     .wb_adc_spi_sel_o    (wb_m2s_adc_spi_sel),

@@ -30,6 +30,9 @@ module adc4rcv(
 		input del_ce,
 		input del_rst,
 		input del_cal,
+		output reg [15:0] bs_cnt,
+		input bs_reset,
+		input bs_cntenb,
 		output [9:0]	debug
 	);
 	 
@@ -89,9 +92,8 @@ module adc4rcv(
 		.debug(debug[1])
 	);
 	 
-	 assign debug[9:2] = {2'b0, FR_r};
-	 
-
+	assign debug[9:2] = {2'b0, FR_r};
+	
 	always @ (posedge CLK) begin
 		if (BSENABLE && (!BSCNT) && FR_r != FRAME) begin
 			BS <= 1'b1;
@@ -100,6 +102,11 @@ module adc4rcv(
 			BS <= 1'b0;
 		end
 		if (BSCNT) BSCNT <= BSCNT - 1;
+		if (bs_reset) begin
+			bs_cnt <= 0;
+		end else if (bs_cntenb && BS && bs_cnt < 16'hFFFF) begin
+			bs_cnt <= bs_cnt + 1;
+		end
 	end 
 
 //		Data

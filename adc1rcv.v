@@ -44,8 +44,11 @@ module adc1rcv(
       .IB(DIN[1]) // Diff_n buffer input (connect directly to top-level port)
    );
 
+	assign DIN_ss = DIN_s;
+
+/*
   IODELAY2 #(
-      .COUNTER_WRAPAROUND("STAY_AT_LIMIT"), // "STAY_AT_LIMIT" or "WRAPAROUND" 
+      .COUNTER_WRAPAROUND("WRAPAROUND"), // "STAY_AT_LIMIT" or "WRAPAROUND" 
       .DATA_RATE("DDR"),                 // "SDR" or "DDR" 
       .DELAY_SRC("IDATAIN"),             // "IO", "ODATAIN" or "IDATAIN" 
       .IDELAY2_VALUE(0),                 // Delay value when IDELAY_MODE="PCI" (0-255)
@@ -74,6 +77,7 @@ module adc1rcv(
       .RST(del_rst),       // 1-bit input: Reset to zero or 1/2 of total delay period
       .T(1'b1)             // 1-bit input: 3-state input signal
    );
+*/
 
   ISERDES2 #(
       .BITSLIP_ENABLE("TRUE"),      // Enable Bitslip Functionality (TRUE/FALSE)
@@ -97,12 +101,12 @@ module adc1rcv(
       .VALID(),         // 1-bit output: Output status of the phase detector
       .BITSLIP(BS),     // 1-bit input: Bitslip enable input
       .CE0(1'b1),       // 1-bit input: Clock enable input
-      .CLK0(CLKIN[0]),     // 1-bit input: I/O clock network input
-      .CLK1(CLKIN[1]),    // 1-bit input: Secondary I/O clock network input
+      .CLK0(CLKIN[0]),  // 1-bit input: I/O clock network input
+      .CLK1(CLKIN[1]),  // 1-bit input: Secondary I/O clock network input
       .CLKDIV(CLK),     // 1-bit input: FPGA logic domain clock input
-      .D(DIN_ss),        // 1-bit input: Input data
+      .D(DIN_ss),       // 1-bit input: Input data
       .IOCE(IOCE),      // 1-bit input: Data strobe input
-      .RST(1'b0),       // 1-bit input: Asynchronous reset input
+      .RST(del_rst),    // 1-bit input: Asynchronous reset input
       .SHIFTIN(1'b0)    // 1-bit input: Cascade input signal for master/slave I/O
    );
 	
@@ -116,7 +120,7 @@ module adc1rcv(
    ISERDES2_slave (
       .CFB0(),           // 1-bit output: Clock feed-through route output
       .CFB1(),           // 1-bit output: Clock feed-through route output
-      .DFB(),             // 1-bit output: Feed-through clock output
+      .DFB(),            // 1-bit output: Feed-through clock output
       .FABRICOUT(), // 1-bit output: Unsynchrnonized data output
       .INCDEC(),       // 1-bit output: Phase detector output
       // Q1 - Q4: 1-bit (each) output: Registered outputs to FPGA logic
@@ -133,7 +137,7 @@ module adc1rcv(
       .CLKDIV(CLK),     // 1-bit input: FPGA logic domain clock input
       .D(0),        		// 1-bit input: Input data
       .IOCE(IOCE),      // 1-bit input: Data strobe input
-      .RST(1'b0),       // 1-bit input: Asynchronous reset input
+      .RST(del_rst),    // 1-bit input: Asynchronous reset input
       .SHIFTIN(M2S)     // 1-bit input: Cascade input signal for master/slave I/O
    );
 endmodule

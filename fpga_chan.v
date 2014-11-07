@@ -33,9 +33,10 @@
 //	3:0 - pattern for ADC receiver check
 //	6:4 - counter max = 2**(16 + 2*CSR[6:4])
 //	7   - check start - edge sensitive  (ready on read)
-//	8   - increment IODELAY2
-//	9   - reset IODELAY2
+//	8   - Disable Bitslip
+//	9   - reset BitSlip
 //	10  - calibrate IODELAY2
+//`
 //		Array registers:
 //	0 - summ mask
 // 1 - trigger mask
@@ -126,6 +127,7 @@ module fpga_chan(
 	wire del_cal;
 	wire del_rst;
 	wire del_ce;
+	wire [63:0] bs_cnt;
 
 //		WB-bus
 	wire wb_clk;
@@ -296,6 +298,22 @@ module fpga_chan(
 	assign wb_s2m_err_array_rty = 0;
 	assign wb_s2m_err_array_dat[31:16] = 16'h0000;
 
+//		input array for Bitslip counters
+	inpreg16 #(.ADRBITS(2)) bs_array (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_bs_array_adr[3:2]), 
+		.wb_dat_i  (wb_m2s_bs_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_bs_array_dat[15:0]),
+		.wb_we     (wb_m2s_bs_array_we),
+		.wb_stb    (wb_m2s_bs_array_stb),
+		.wb_cyc    (wb_m2s_bs_array_cyc), 
+		.wb_ack    (wb_s2m_bs_array_ack), 
+		.reg_i	  (bs_cnt)
+	);
+	assign wb_s2m_bs_array_err = 0;
+	assign wb_s2m_bs_array_rty = 0;
+	assign wb_s2m_bs_array_dat[31:16] = 16'h0000;
+
 //		control IODELAYS
 	iodelaypulse UDEL(
 		.clk(CLK125),
@@ -314,10 +332,13 @@ module fpga_chan(
 		.DIN    	(ADA),		// Input data from ADC
 		.FR	  	(AFA),		// Input frame from ADC 
 		.DOUT		(D_s[47:0]),	// output data (CLK clocked)
-		.BSENABLE (1'b1),
+		.BSENABLE (!CSR[8]),
 		.del_ce	(del_ce),
-		.del_rst	(del_rst),
+		.del_rst	(CSR[9]),
 		.del_cal	(del_cal),
+		.bs_cnt  (bs_cnt[15:0]),
+		.bs_reset(seq_reset),
+		.bs_cntenb(seq_enable),
 		.debug  	()
 	);
 	adc4rcv DINB_rcv (
@@ -326,10 +347,13 @@ module fpga_chan(
 		.DIN    	(ADB),		// Input data from ADC
 		.FR	   (AFB),		// Input frame from ADC 
 		.DOUT		(D_s[95:48]),// output data (CLK clocked)
-		.BSENABLE (1'b1),
+		.BSENABLE (!CSR[8]),
 		.del_ce	(del_ce),
-		.del_rst	(del_rst),
+		.del_rst	(CSR[9]),
 		.del_cal	(del_cal),
+		.bs_cnt  (bs_cnt[31:16]),
+		.bs_reset(seq_reset),
+		.bs_cntenb(seq_enable),
 		.debug  	()
    );
 	adc4rcv DINC_rcv (
@@ -338,10 +362,13 @@ module fpga_chan(
 		.DIN    	(ADC),		// Input data from ADC
 		.FR	   (AFC),		// Input frame from ADC 
 		.DOUT		(D_s[143:96]),	// output data (CLK clocked)
-		.BSENABLE (1'b1),
+		.BSENABLE (!CSR[8]),
 		.del_ce	(del_ce),
-		.del_rst	(del_rst),
+		.del_rst	(CSR[9]),
 		.del_cal	(del_cal),
+		.bs_cnt  (bs_cnt[47:32]),
+		.bs_reset(seq_reset),
+		.bs_cntenb(seq_enable),
 		.debug  	()
    );
 	adc4rcv DIND_rcv (
@@ -350,10 +377,13 @@ module fpga_chan(
 		.DIN    	(ADD),		// Input data from ADC
 		.FR	   (AFD),		// Input frame from ADC 
 		.DOUT		(D_s[191:144]),	// output data (CLK clocked)
-		.BSENABLE (1'b1),
+		.BSENABLE (!CSR[8]),
 		.del_ce	(del_ce),
-		.del_rst	(del_rst),
+		.del_rst	(CSR[9]),
 		.del_cal	(del_cal),
+		.bs_cnt  (bs_cnt[63:48]),
+		.bs_reset(seq_reset),
+		.bs_cntenb(seq_enable),
 		.debug  	()	 
    );
 
