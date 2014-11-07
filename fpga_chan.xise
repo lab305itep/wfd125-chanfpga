@@ -9,10 +9,10 @@
     <!-- along with the project source files, is sufficient to open and    -->
     <!-- implement in ISE Project Navigator.                               -->
     <!--                                                                   -->
-    <!-- Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved. -->
+    <!-- Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved. -->
   </header>
 
-  <version xil_pn:ise_version="14.7" xil_pn:schema_version="2"/>
+  <version xil_pn:ise_version="14.2" xil_pn:schema_version="2"/>
 
   <files>
     <file xil_pn:name="fpga_chan.v" xil_pn:type="FILE_VERILOG">
@@ -131,10 +131,6 @@
     <file xil_pn:name="checkseq.v" xil_pn:type="FILE_VERILOG">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="122"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="20"/>
-    </file>
-    <file xil_pn:name="iodelaypulse.v" xil_pn:type="FILE_VERILOG">
-      <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="123"/>
-      <association xil_pn:name="Implementation" xil_pn:seqID="18"/>
     </file>
     <file xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11.xise" xil_pn:type="FILE_COREGENISE">
       <association xil_pn:name="Implementation" xil_pn:seqID="0"/>

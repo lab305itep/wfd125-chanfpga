@@ -29,8 +29,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 module adccheck(
 		input [11:0] data,		// ADC data received
-		input clk,					// ADC clock
-		output reg [15:0] cnt,		//	Error counter
+		input clk,					// ADC data clock
+		output reg [15:0] cnt,	//	Error counter
 		input count,				// Count errors enable
 		input reset,				// Reset error counter
 		input [3:0] type			// Pattern type

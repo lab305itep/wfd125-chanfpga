@@ -35,7 +35,6 @@
 //	7   - check start - edge sensitive  (ready on read)
 //	8   - Disable Bitslip
 //	9   - reset BitSlip
-//	10  - calibrate IODELAY2
 //`
 //		Array registers:
 //	0 - summ mask
@@ -124,10 +123,8 @@ module fpga_chan(
 	wire seq_ready;
 	wire seq_reset;
 	wire seq_enable;
-	wire del_cal;
-	wire del_rst;
-	wire del_ce;
 	wire [63:0] bs_cnt;
+	wire [3:0] ADCCLK;
 
 //		WB-bus
 	wire wb_clk;
@@ -314,73 +311,54 @@ module fpga_chan(
 	assign wb_s2m_bs_array_rty = 0;
 	assign wb_s2m_bs_array_dat[31:16] = 16'h0000;
 
-//		control IODELAYS
-	iodelaypulse UDEL(
-		.clk(CLK125),
-		.reset(CSR[9]),
-		.pulse(CSR[8]),
-		.cal(CSR[10]),
-		.del_ce(del_ce),
-		.del_rst(del_rst),
-		.del_cal(del_cal)
-	);
-	
 //	ADC receivers
 	adc4rcv DINA_rcv (
-		.CLK    	(CLK125),	// global clock
+		.CLK    	(ADCCLK[0]),// ADC data clock
 		.CLKIN  	(ACA),		// input clock from ADC (375 MHz)
 		.DIN    	(ADA),		// Input data from ADC
 		.FR	  	(AFA),		// Input frame from ADC 
 		.DOUT		(D_s[47:0]),	// output data (CLK clocked)
 		.BSENABLE (!CSR[8]),
-		.del_ce	(del_ce),
-		.del_rst	(CSR[9]),
-		.del_cal	(del_cal),
+		.reset	(CSR[9]),
 		.bs_cnt  (bs_cnt[15:0]),
 		.bs_reset(seq_reset),
 		.bs_cntenb(seq_enable),
 		.debug  	()
 	);
 	adc4rcv DINB_rcv (
-		.CLK    	(CLK125),	// global clock
+		.CLK    	(ADCCLK[0]),// ADC data clock
 		.CLKIN  	(ACB),		// input clock from ADC (375 MHz)
 		.DIN    	(ADB),		// Input data from ADC
 		.FR	   (AFB),		// Input frame from ADC 
 		.DOUT		(D_s[95:48]),// output data (CLK clocked)
 		.BSENABLE (!CSR[8]),
-		.del_ce	(del_ce),
-		.del_rst	(CSR[9]),
-		.del_cal	(del_cal),
+		.reset	(CSR[9]),
 		.bs_cnt  (bs_cnt[31:16]),
 		.bs_reset(seq_reset),
 		.bs_cntenb(seq_enable),
 		.debug  	()
    );
 	adc4rcv DINC_rcv (
-		.CLK    	(CLK125),	// global clock
+		.CLK    	(ADCCLK[0]),// ADC data clock
 		.CLKIN  	(ACC),		// input clock from ADC (375 MHz)
 		.DIN    	(ADC),		// Input data from ADC
 		.FR	   (AFC),		// Input frame from ADC 
 		.DOUT		(D_s[143:96]),	// output data (CLK clocked)
 		.BSENABLE (!CSR[8]),
-		.del_ce	(del_ce),
-		.del_rst	(CSR[9]),
-		.del_cal	(del_cal),
+		.reset	(CSR[9]),
 		.bs_cnt  (bs_cnt[47:32]),
 		.bs_reset(seq_reset),
 		.bs_cntenb(seq_enable),
 		.debug  	()
    );
 	adc4rcv DIND_rcv (
-		.CLK    	(CLK125),	// global clock
+		.CLK    	(ADCCLK[0]),// ADC data clock
 		.CLKIN  	(ACD),		// input clock from ADC (375 MHz)
 		.DIN    	(ADD),		// Input data from ADC
 		.FR	   (AFD),		// Input frame from ADC 
 		.DOUT		(D_s[191:144]),	// output data (CLK clocked)
 		.BSENABLE (!CSR[8]),
-		.del_ce	(del_ce),
-		.del_rst	(CSR[9]),
-		.del_cal	(del_cal),
+		.reset	(CSR[9]),
 		.bs_cnt  (bs_cnt[63:48]),
 		.bs_reset(seq_reset),
 		.bs_cntenb(seq_enable),
@@ -392,7 +370,8 @@ module fpga_chan(
 	generate
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
-			.clk(CLK125), 
+			.clk(CLK125),
+			.adcclk(ADCCLK[i/4]),
 			.data(D_s[12*i+11:12*i]), 
 			.d2sum(d2sum[12*i+11:12*i]), 
 			.ped(adc_ped[16*i+11:16*i]), 
@@ -415,7 +394,7 @@ module fpga_chan(
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		adccheck UCHECK (
 			.data(D_s[12*i+11:12*i]),	// ADC data received
-			.clk(CLK125),					// ADC clock
+			.clk(ADCCLK[i/4]),					// ADC clock
 			.cnt(adc_err[16*i+15:16*i]),	//	Error counter
 			.count(seq_enable),			// Count errors enable
 			.reset(seq_reset),			// Reset error counter

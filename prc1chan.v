@@ -30,6 +30,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 module prc1chan(
 		input clk,					// 125MHz clock
+		input ADCCLK,				// ADC data clock
 		input [11:0] data,		// ADC raw data
 		output reg [11:0] d2sum,	// ADC - pedestal
 		output reg [11:0] ped = 0,	// pedestal
@@ -65,35 +66,48 @@ module prc1chan(
 	reg [10:0] ffaddr = 0;		// the word after the full block
 	reg [10:0] fffaddr = 0;		// the word after the full block clk negedge
 	reg [15:0] fifo [2047:0];
-	reg [7:0] copied = 0;
+	reg [7:0]  copied = 0;
+	reg [11:0] ped_s = 0;
+	reg ped_pulse = 0;
+	reg [1:0] ped_pulse_d = 0;
 	
 //		to total sum
-	always @ (posedge clk) begin
-		if (data + cped[11:0] > ped) begin
-			pdata <= data - ped + cped[11:0];
+	always @ (posedge ADCCLK) begin
+		if (data + cped[11:0] > ped_s) begin
+			pdata <= data - ped_s + cped[11:0];
 		end else begin
 			pdata <= 0;
 		end
-		d2sum <= ((!smask) && (data > ped)) ? data - ped : 0;		
+		d2sum <= ((!smask) && (data > ped_s)) ? data - ped_s : 0;		
 	end
 
 //		pedestal calculation
-	always @ (posedge clk) begin
+	always @ (posedge ADCCLK) begin
 		if (&pedcnt) begin
 			pedcnt <= 0;
-			ped <= pedsum[PBITS+11:PBITS];
+			ped_s <= pedsum[PBITS+11:PBITS];
 			pedsum <= data;
 		end else begin
 			pedcnt <= pedcnt + 1;
 			pedsum <= pedsum + data;
 		end
+		ped_pulse = (pedcnt < 3) ? 1 : 0;
+	end
+	
+//		do safe pedestal output
+	always @ (posedge clk) begin
+		ped_pulse_d <= {ped_pulse_d[0], ped_pulse};
+		if (ped_pulse_d == 2'b01) ped <= ped_s;
 	end
 
 //		circle memory buffer
-	always @ (posedge clk) begin
+	always @ (posedge ADCCLK) begin
 		mem[waddr] <= pdata;
-		rdata <= mem[raddr];
 		waddr <= waddr + 1;
+	end
+
+	always @ (posedge clk) begin
+		rdata <= mem[raddr];
 	end
 
 //		self trigger & prescale 
@@ -101,7 +115,9 @@ module prc1chan(
 	reg strig = 0;
 	reg strig_d = 0;
 	
-	always @ (posedge clk) begin
+	
+	//?????????????????????????
+	always @ (posedge ADCCLK) begin
 		strig <= 0;
 		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
 			strig_d <= 1;

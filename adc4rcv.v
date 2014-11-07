@@ -21,18 +21,16 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module adc4rcv(
-		input         	CLK,		// global clock
+		output        	CLK,		// data clock
 		input  [1:0]  	CLKIN,	// input clock from ADC (375 MHz)
 		input  [15:0] 	DIN,		// Input data from ADC
 		input  [1:0]  	FR,		// Input frame from ADC 
 		output [47:0] 	DOUT,		// output data (CLK clocked)
 		input         	BSENABLE,
-		input del_ce,
-		input del_rst,
-		input del_cal,
+		input 			reset,
 		output reg [15:0] bs_cnt,
-		input bs_reset,
-		input bs_cntenb,
+		input 			bs_reset,
+		input 			bs_cntenb,
 		output [9:0]	debug
 	);
 	 
@@ -60,7 +58,7 @@ module adc4rcv(
       .DIVIDE(6)  // DIVCLK divider (3-8)
    )
    BUFIO2_2CLK_p (
-      .DIVCLK(),             	// 1-bit output: Divided clock output
+      .DIVCLK(CLK),          	// 1-bit output: Divided clock output
       .IOCLK(CLKIN_2[0]),     // 1-bit output: I/O output clock
       .SERDESSTROBE(IOCE), 	// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
       .I(CLKIN_s[0]),         // 1-bit input: Clock input (connect to IBUFG)
@@ -86,9 +84,7 @@ module adc4rcv(
 		.DOUT(FR_r),
 		.BS(BS),
 		.IOCE(IOCE),
-		.del_ce(del_ce),
-		.del_rst(del_rst),
-		.del_cal(del_cal),
+		.reset(reset),
 		.debug(debug[1])
 	);
 	 
@@ -121,9 +117,7 @@ module adc4rcv(
 			.DOUT(DOUT[6*i+5:6*i]),
 			.BS(BS),
 			.IOCE(IOCE),
-			.del_ce(del_ce),
-			.del_rst(del_rst),
-			.del_cal(del_cal),
+			.reset(reset),
 			.debug()
 		);
       end
