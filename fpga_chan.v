@@ -326,7 +326,7 @@ module fpga_chan(
 		.debug  	()
 	);
 	adc4rcv DINB_rcv (
-		.CLK    	(ADCCLK[0]),// ADC data clock
+		.CLK    	(ADCCLK[1]),// ADC data clock
 		.CLKIN  	(ACB),		// input clock from ADC (375 MHz)
 		.DIN    	(ADB),		// Input data from ADC
 		.FR	   (AFB),		// Input frame from ADC 
@@ -339,7 +339,7 @@ module fpga_chan(
 		.debug  	()
    );
 	adc4rcv DINC_rcv (
-		.CLK    	(ADCCLK[0]),// ADC data clock
+		.CLK    	(ADCCLK[2]),// ADC data clock
 		.CLKIN  	(ACC),		// input clock from ADC (375 MHz)
 		.DIN    	(ADC),		// Input data from ADC
 		.FR	   (AFC),		// Input frame from ADC 
@@ -352,7 +352,7 @@ module fpga_chan(
 		.debug  	()
    );
 	adc4rcv DIND_rcv (
-		.CLK    	(ADCCLK[0]),// ADC data clock
+		.CLK    	(ADCCLK[3]),// ADC data clock
 		.CLKIN  	(ACD),		// input clock from ADC (375 MHz)
 		.DIN    	(ADD),		// Input data from ADC
 		.FR	   (AFD),		// Input frame from ADC 
@@ -371,7 +371,7 @@ module fpga_chan(
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
 			.clk(CLK125),
-			.adcclk(ADCCLK[i/4]),
+			.ADCCLK(ADCCLK[i/4]),
 			.data(D_s[12*i+11:12*i]), 
 			.d2sum(d2sum[12*i+11:12*i]), 
 			.ped(adc_ped[16*i+11:16*i]), 

@@ -57,6 +57,7 @@ module prc1chan(
 	reg [11:0] pdata = 0;
 	reg [9:0] waddr = 0;
 	reg [9:0] raddr = 0;
+	reg [9:0] wwaddr = 0;
 	reg [11:0] mem [1023:0];
 	reg [11:0] rdata;
 	reg [15:0] trg_data;
@@ -70,6 +71,15 @@ module prc1chan(
 	reg [11:0] ped_s = 0;
 	reg ped_pulse = 0;
 	reg [1:0] ped_pulse_d = 0;
+	reg [1:0] mtrig = 0;
+	reg wcopy = 0;
+	reg wcopy_d = 0;
+	reg [15:0] trigger_s = 0;
+	reg [11:0] d2sumfifo [3:0];
+	reg [1:0] d2sum_waddr = 0;
+	reg [1:0] d2sum_raddr = 2;
+	reg d2sum_arst = 0;
+	reg d2sum_arst_d = 0;
 	
 //		to total sum
 	always @ (posedge ADCCLK) begin
@@ -78,7 +88,15 @@ module prc1chan(
 		end else begin
 			pdata <= 0;
 		end
-		d2sum <= ((!smask) && (data > ped_s)) ? data - ped_s : 0;		
+		d2sumfifo[d2sum_waddr] <= ((!smask) && (data > ped_s)) ? data - ped_s : 0;
+		d2sum_waddr <= d2sum_waddr + 1;
+		d2sum_arst <= (d2sum_waddr == 0) ? 1 : 0;
+	end
+	
+	always @ (posedge clk) begin
+		d2sum_arst_d <= d2sum_arst;
+		d2sum <= d2sumfifo[d2sum_raddr];
+		d2sum_raddr <= (d2sum_arst_d) ? 0 : d2sum_raddr + 1;
 	end
 
 //		pedestal calculation
@@ -113,22 +131,27 @@ module prc1chan(
 //		self trigger & prescale 
 	reg [15:0] presc_cnt = 0;
 	reg strig = 0;
+	reg [1:0] strig_cnt = 0;
 	reg strig_d = 0;
 	
-	
-	//?????????????????????????
 	always @ (posedge ADCCLK) begin
-		strig <= 0;
+		strig <= (| strig_cnt);
+		if (| strig_cnt) strig_cnt <= strig_cnt - 1;
 		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
 			strig_d <= 1;
 			if (presc_cnt == prescale) begin 
-				if (!stmask) strig <= 1;
+				if (!stmask) begin 
+					strig_cnt <= 3;
+					wwaddr <= waddr;
+				end
 				presc_cnt <= 0;
 			end else begin
 				presc_cnt <= presc_cnt + 1;
 			end
 		end
 		if (pdata < (sthr[11:0] + cped[11:0])) strig_d <= 0;
+		wcopy_d <= wcopy;
+		if (wcopy_d) wwaddr <= waddr;
 	end
 
 //		state mathine definitions
@@ -143,25 +166,30 @@ module prc1chan(
 //		trigger processing
 	reg [15:0] tofifo;
 	always @ (posedge clk) begin
+//		master trigger start
+		if (trigger[15]) trigger_s <= trigger;
+		mtrig <= {mtrig[0], trigger[15]};
+		wcopy <= trigger[15] | mtrig[0];
+//		state machine
 		case (trg_state) 
 		ST_IDLE: begin
-				if (trigger[15] && !tmask) begin
+				if (mtrig[1] && !tmask) begin
 					trg_state <= ST_MTRIG;
-					trg_data <= trigger;
+					trg_data <= trigger_s;
 					swfaddr <= wfaddr;			// save write fifo address if we will have to reject due to zero suppression
 				end else if (strig) begin
 					trg_state <= ST_STCOPY;
 					swfaddr <= wfaddr;			// save write fifo address if we will have to abort on real trigger
-					raddr <= waddr - swinbeg[9:0];
+					raddr <= wwaddr - swinbeg[9:0];
 					tofifo = {2'b10, num, winlen[7:0]};	// 2'b10 - self trigger signature
 					wfaddr <= wfaddr + 1;
 					copied <= 0;
 				end
 			end
 		ST_STCOPY: begin
-				if (trigger[15] && !tmask) begin
+				if (mtrig[1] && !tmask) begin
 					trg_state <= ST_MTRIG;
-					trg_data <= trigger;
+					trg_data <= trigger_s;
 					wfaddr <= swfaddr;
 				end else if (copied == winlen[7:0]) begin
 					trg_state <= ST_IDLE;
@@ -176,13 +204,14 @@ module prc1chan(
 		ST_MTRIG: begin
 				tofifo = {2'b11, num, winlen[7:0]};	// 2'b11 - master trigger signature
 				wfaddr <= wfaddr + 1;
-				raddr <= waddr - winbeg[9:0];
+				raddr <= wwaddr - winbeg[9:0];
 				trg_state <= ST_MTNUM;
 				zthr_flag <= 0;
 			end
 		ST_MTNUM: begin
 				tofifo = trg_data;
 				wfaddr <= wfaddr + 1;
+				raddr <= wwaddr - winbeg[9:0];
 				trg_state <= ST_MTCOPY;
 				copied <= 0;
 			end

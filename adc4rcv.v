@@ -41,6 +41,7 @@ module adc4rcv(
 	 reg        BS;
 	 reg  [3:0] BSCNT;
 	 wire       IOCE;
+	 wire       DIVCLK;
 	 
 	 assign debug[0] = BS;
 
@@ -58,7 +59,7 @@ module adc4rcv(
       .DIVIDE(6)  // DIVCLK divider (3-8)
    )
    BUFIO2_2CLK_p (
-      .DIVCLK(CLK),          	// 1-bit output: Divided clock output
+      .DIVCLK(DIVCLK),        // 1-bit output: Divided clock output
       .IOCLK(CLKIN_2[0]),     // 1-bit output: I/O output clock
       .SERDESSTROBE(IOCE), 	// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
       .I(CLKIN_s[0]),         // 1-bit input: Clock input (connect to IBUFG)
@@ -74,6 +75,11 @@ module adc4rcv(
       .SERDESSTROBE(), 	// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
       .I(CLKIN_s[1]),         // 1-bit input: Clock input (connect to IBUFG)
       .IB(CLKIN_s[0])         // 1-bit input: Secondary clock input
+   );
+
+	BUFG BUFG_inst (
+      .O(CLK), 	// 1-bit output: Clock buffer output
+      .I(DIVCLK)  // 1-bit input: Clock buffer input
    );
 
 //		Frame
