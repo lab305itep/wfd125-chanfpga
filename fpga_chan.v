@@ -133,7 +133,7 @@ module fpga_chan(
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
 
 	assign ACNTR = 4'bzzzz;
-	assign TP = 0;
+	assign TP = {gtp_comma_o[0], gtp_comma_i};
 
 //		GTP communication module
 	
