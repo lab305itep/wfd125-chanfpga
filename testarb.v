@@ -28,7 +28,7 @@ module testarb;
 	reg clk;
 	reg [255:0] data;
 	reg trigger;
-	reg [15:0] req;
+	wire [15:0] req;
 	reg [10:0] rfaddr;
 	reg [10:0] ffaddr;
 	reg [10:0] fffaddr;
@@ -53,7 +53,6 @@ module testarb;
 	initial begin
 		// Initialize Inputs
 		clk = 0;
-		req = 0;
 		trigger = 0;
 		data = 0;
 		rfaddr = 0;
@@ -77,15 +76,15 @@ module testarb;
       
 	always @ (*) #4 clk <= !clk;
 
+	assign req[1:0] = 0;
+	assign req[15:3] = 0;
+   assign req[2] = rfaddr != fffaddr;
+
 //		Fifo to arbitter
 	always @ (posedge clk) begin
 		data[47:32] <= fifo[rfaddr];
 		fffaddr <= ffaddr;
-		req[2] <= 0;
-		if (rfaddr != fffaddr) begin
-			if (ack[2]) rfaddr <= rfaddr + 1;
-			if (rfaddr + 1 != fffaddr) req[2] <= 1;
-		end
+		if (ack[2]) rfaddr <= rfaddr + 1;
 	end
 		
 endmodule

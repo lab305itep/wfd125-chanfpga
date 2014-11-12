@@ -44,11 +44,12 @@ module prc1chan(
 		input [15:0] trigger,	// master trigger information
 		output reg [15:0] dout = 0,	// data to arbitter
 		input [5:0] num,			// ADC number
-		output reg req,			// request to arbitter
+		output req,					// request to arbitter
 		input ack,					// acknowledge from arbitter
 		input smask,				// 1 bit mask for sum
 		input tmask,				// 1 bit mask for trigger
-		input stmask				// 1 bit mask for self trigger
+		input stmask,				// 1 bit mask for self trigger
+		output fifo_full			// 1 bit fifo full signature
    );
 
 	localparam PBITS = 16;
@@ -139,7 +140,7 @@ module prc1chan(
 		if (| strig_cnt) strig_cnt <= strig_cnt - 1;
 		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
 			strig_d <= 1;
-			if (presc_cnt == prescale) begin 
+			if (presc_cnt >= prescale) begin 
 				if (!stmask) begin 
 					strig_cnt <= 3;
 					wwaddr <= waddr;
@@ -162,6 +163,10 @@ module prc1chan(
 	localparam [4:0] ST_MTCOPY = 5'b1_0000;
 	reg [4:0] trg_state = ST_IDLE;
 	reg zthr_flag = 0;
+	wire [10:0] fifo_free;
+	
+	assign fifo_free = rfaddr - ffaddr;
+	assign fifo_full = (fifo_free < winlen[7:0] + 2) && (| fifo_free);
 
 //		trigger processing
 	reg [15:0] tofifo;
@@ -172,7 +177,7 @@ module prc1chan(
 		wcopy <= trigger[15] | mtrig[0];
 //		state machine
 		case (trg_state) 
-		ST_IDLE: begin
+		ST_IDLE: if (!fifo_full) begin
 				if (mtrig[1] && !tmask) begin
 					trg_state <= ST_MTRIG;
 					trg_data <= trigger_s;
@@ -237,16 +242,11 @@ module prc1chan(
 	end
 
 //		Fifo to arbitter
-	wire [10:0] rfaddrp;
-	assign rfaddrp = rfaddr + 1;
+	assign req = rfaddr != fffaddr;
 	always @ (posedge clk) begin
 		dout <= fifo[rfaddr];
 		fffaddr <= ffaddr;
-		req <= 0;
-		if (rfaddr != fffaddr) begin
-			if (ack) rfaddr <= rfaddr + 1;
-			if (rfaddrp != fffaddr) req <= 1;
-		end
+		if (ack) rfaddr <= rfaddr + 1;
 	end
 
 endmodule

@@ -125,6 +125,8 @@ module fpga_chan(
 	wire seq_enable;
 	wire [63:0] bs_cnt;
 	wire [3:0] ADCCLK;
+	wire [15:0] fifo_full;
+	reg [15:0] fifo_full_cnt;
 
 //		WB-bus
 	wire wb_clk;
@@ -133,7 +135,7 @@ module fpga_chan(
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
 
 	assign ACNTR = 4'bzzzz;
-	assign TP = {gtp_comma_o[0], gtp_comma_i};
+	assign TP = {gtp_comma_o[0], comma2gtp, sum_trig, 2'b0};
 
 //		GTP communication module
 	
@@ -296,16 +298,16 @@ module fpga_chan(
 	assign wb_s2m_err_array_dat[31:16] = 16'h0000;
 
 //		input array for Bitslip counters
-	inpreg16 #(.ADRBITS(2)) bs_array (
+	inpreg16 #(.ADRBITS(3)) bs_array (
 		.wb_clk    (wb_clk), 
-		.wb_adr    (wb_m2s_bs_array_adr[3:2]), 
+		.wb_adr    (wb_m2s_bs_array_adr[4:2]), 
 		.wb_dat_i  (wb_m2s_bs_array_dat[15:0]), 
 		.wb_dat_o  (wb_s2m_bs_array_dat[15:0]),
 		.wb_we     (wb_m2s_bs_array_we),
 		.wb_stb    (wb_m2s_bs_array_stb),
 		.wb_cyc    (wb_m2s_bs_array_cyc), 
 		.wb_ack    (wb_s2m_bs_array_ack), 
-		.reg_i	  (bs_cnt)
+		.reg_i	  ({16'h0000, 16'h0000, 16'h0000, fifo_full_cnt, bs_cnt})
 	);
 	assign wb_s2m_bs_array_err = 0;
 	assign wb_s2m_bs_array_rty = 0;
@@ -389,7 +391,8 @@ module fpga_chan(
 			.ack(ack4arb[i]), 
 			.smask(par_array[PAR_SMASK*16+i]), 
 			.tmask(par_array[PAR_TMASK*16+i]), 
-			.stmask(par_array[PAR_STMASK*16+i])
+			.stmask(par_array[PAR_STMASK*16+i]),
+			.fifo_full(fifo_full[i])
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		adccheck UCHECK (
@@ -409,7 +412,9 @@ module fpga_chan(
 			trigger <= 0;
 		end else begin
 			trigger <= gtp_data_o[15:0];
+			if ((| fifo_full) && !(& fifo_full_cnt)) fifo_full_cnt <= fifo_full_cnt + 1;
 		end
+		if (seq_reset) fifo_full_cnt <= 0;
 	end
 
 //		Pattern check sequencer

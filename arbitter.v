@@ -55,13 +55,14 @@ module arbitter(
 		trigger_t <= trigger;
 		kchar <= 1;
 		dout <= CH_COMMA;
-		dvalid <= rmux;
+		dvalid <= | ack;
 		if (trigger_t) begin
 			dout <= CH_TRIG;
 		end else	if (dvalid) begin
 			dout <= data_r[sel];
 			kchar <= 0;
-		end else if (!rmux) begin
+		end 
+		if (!rmux && !trigger) begin
 			sel <= sel + 1;
 		end
 	end

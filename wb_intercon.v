@@ -116,7 +116,7 @@ wire        wb_s2m_resize_i2c_clk_rty;
 wb_mux
   #(.num_slaves (7),
     .MATCH_ADDR ({32'h00000040, 32'h00000000, 32'h00000008, 32'h00000080, 32'h000000c0, 32'h00000100, 32'h00000060}),
-    .MATCH_MASK ({32'hffffffe0, 32'hfffffff8, 32'hfffffff8, 32'hffffffc0, 32'hffffffc0, 32'hffffffc0, 32'hfffffff0}))
+    .MATCH_MASK ({32'hffffffe0, 32'hfffffff8, 32'hfffffff8, 32'hffffffc0, 32'hffffffc0, 32'hffffffc0, 32'hffffffe0}))
  wb_mux_spi_master
    (.wb_clk_i  (wb_clk_i),
     .wb_rst_i  (wb_rst_i),

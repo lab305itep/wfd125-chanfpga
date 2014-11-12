@@ -35,8 +35,8 @@ module sumcalc(
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
 
 //		Delay local result	
-	reg [16*XDELAY-1:0] xdelay;
-	always @ (posedge clk) xdelay <= {xdelay[16*XDELAY-17:0], sum16};
+	reg [17*XDELAY-1:0] xdelay;
+	always @ (posedge clk) xdelay <= {xdelay[17*XDELAY-18:0], {sumcomma, sumres}};
 	
 //		Calculate local sum
 	reg [15:0] sum4 [3:0];
@@ -60,10 +60,10 @@ module sumcalc(
 	reg [17:0] sum64;
 	reg trigout_s;
 	always @ (posedge clk) begin
-		sum64 <= ((xcomma[0]) ? sumdata[15:0] : 0) + 
-			((xcomma[1]) ? sumdata[31:16] : 0) + ((xcomma[2]) ? sumdata[47:32] : 0);
+		sum64 <= ((!xcomma[0]) ? sumdata[15:0] : 0) + ((!xcomma[1]) ? sumdata[31:16] : 0) + 
+			((!xcomma[2]) ? sumdata[47:32] : 0) + ((!xdelay[17*XDELAY-1]) ? xdelay[17*XDELAY-2:17*XDELAY-17] : 0);
 		trigout <= 0;
-		if (sum64 > s64thr) begin
+		if (sum64 > {2'b00, s64thr}) begin
 			trigout_s <= 1;
 			if (!trigout_s) trigout <= 1;
 		end else begin
