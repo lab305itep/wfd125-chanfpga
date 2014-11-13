@@ -35,6 +35,7 @@
 //	7   - check start - edge sensitive  (ready on read)
 //	8   - Disable Bitslip
 //	9   - reset BitSlip
+// 15  - raw mode: no selftrigger, nothing to sumcalc, raw data blocks on master trigger 
 //`
 //		Array registers:
 //	0 - summ mask
@@ -392,7 +393,8 @@ module fpga_chan(
 			.smask(par_array[PAR_SMASK*16+i]), 
 			.tmask(par_array[PAR_TMASK*16+i]), 
 			.stmask(par_array[PAR_STMASK*16+i]),
-			.fifo_full(fifo_full[i])
+			.fifo_full(fifo_full[i]),
+			.raw(CSR[15])
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		adccheck UCHECK (

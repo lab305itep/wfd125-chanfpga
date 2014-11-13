@@ -49,7 +49,8 @@ module prc1chan(
 		input smask,				// 1 bit mask for sum
 		input tmask,				// 1 bit mask for trigger
 		input stmask,				// 1 bit mask for self trigger
-		output fifo_full			// 1 bit fifo full signature
+		output fifo_full,			// 1 bit fifo full signature
+		input raw					// test mode: no selftrigger, zero for summing, raw data on master trigger
    );
 
 	localparam PBITS = 16;
@@ -84,12 +85,14 @@ module prc1chan(
 	
 //		to total sum
 	always @ (posedge ADCCLK) begin
-		if (data + cped[11:0] > ped_s) begin
+		if (raw) begin
+			pdata <= data;
+		end else if (data + cped[11:0] > ped_s) begin
 			pdata <= data - ped_s + cped[11:0];
 		end else begin
 			pdata <= 0;
 		end
-		d2sumfifo[d2sum_waddr] <= ((!smask) && (data > ped_s)) ? data - ped_s : 0;
+		d2sumfifo[d2sum_waddr] <= ((!smask) && (data > ped_s) && (!raw)) ? data - ped_s : 0;
 		d2sum_waddr <= d2sum_waddr + 1;
 		d2sum_arst <= (d2sum_waddr == 0) ? 1 : 0;
 	end
@@ -136,7 +139,7 @@ module prc1chan(
 	reg strig_d = 0;
 	
 	always @ (posedge ADCCLK) begin
-		strig <= (| strig_cnt);
+		strig <= (| strig_cnt) & (!raw);
 		if (| strig_cnt) strig_cnt <= strig_cnt - 1;
 		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
 			strig_d <= 1;
@@ -216,7 +219,6 @@ module prc1chan(
 		ST_MTNUM: begin
 				tofifo = trg_data;
 				wfaddr <= wfaddr + 1;
-				raddr <= wwaddr - winbeg[9:0];
 				trg_state <= ST_MTCOPY;
 				copied <= 0;
 			end
