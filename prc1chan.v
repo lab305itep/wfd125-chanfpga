@@ -82,15 +82,20 @@ module prc1chan(
 	reg [1:0] d2sum_raddr = 2;
 	reg d2sum_arst = 0;
 	reg d2sum_arst_d = 0;
+	wire [13:0] accum;
+	
+	assign accum = {2'b00, data} - {2'b00, ped_s} + cped[13:0];
 	
 //		to total sum
 	always @ (posedge ADCCLK) begin
 		if (raw) begin
 			pdata <= data;
-		end else if (data + cped[11:0] > ped_s) begin
-			pdata <= data - ped_s + cped[11:0];
+		end else if (accum[13]) begin
+			pdata <= 0;		//	negative
+		end else if (accum[12]) begin
+			pdata <= 12'hFFF;	// maximum
 		end else begin
-			pdata <= 0;
+			pdata <= accum[11:0];
 		end
 		d2sumfifo[d2sum_waddr] <= ((!smask) && (data > ped_s) && (!raw)) ? data - ped_s : 0;
 		d2sum_waddr <= d2sum_waddr + 1;
@@ -225,7 +230,7 @@ module prc1chan(
 		ST_MTCOPY: begin
 				if (copied == winlen[7:0]) begin
 					trg_state <= ST_IDLE;
-					if (zthr_flag) begin
+					if (zthr_flag | raw) begin
 						ffaddr <= wfaddr;
 					end else begin
 						wfaddr <= swfaddr;
