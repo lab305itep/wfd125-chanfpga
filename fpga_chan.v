@@ -104,6 +104,9 @@ module fpga_chan(
     );
 
 `include "fpga_chan.vh"
+
+`include "version.vh"
+
 //		Wires and registers
 	wire CLK125;
 	wire [191:0] D_s;					// data from ADC
@@ -183,14 +186,15 @@ module fpga_chan(
 	wire I2CDAT_en;
 	assign wb_s2m_i2c_clk_err = 0;
 	assign wb_s2m_i2c_clk_rty = 0;
-
+	assign wb_s2m_i2c_clk_dat[31:8] = 0;
+	
 	i2c_master_slave i2c_clk (
 		.wb_clk_i  (wb_clk), 
 		.wb_rst_i  (wb_rst),		// active high 
 		.arst_i    (1'b0), 		// active high
 		.wb_adr_i  (wb_m2s_i2c_clk_adr[4:2]), 
-		.wb_dat_i  (wb_m2s_i2c_clk_dat), 
-		.wb_dat_o  (wb_s2m_i2c_clk_dat),
+		.wb_dat_i  (wb_m2s_i2c_clk_dat[7:0]), 
+		.wb_dat_o  (wb_s2m_i2c_clk_dat[7:0]),
 		.wb_we_i   (wb_m2s_i2c_clk_we),
 		.wb_stb_i  (wb_m2s_i2c_clk_stb),
 		.wb_cyc_i  (wb_m2s_i2c_clk_cyc), 
@@ -246,6 +250,22 @@ module fpga_chan(
 		.wb_ack    (wb_s2m_reg_csr_ack), 
 		.reg_i	  ({CSR[31:8], seq_ready, CSR[6:0]}),
 		.reg_o	  (CSR)
+	);
+	assign wb_s2m_reg_csr_err = 0;
+	assign wb_s2m_reg_csr_rty = 0;
+	
+//		Version
+	inoutreg reg_ver (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_reg_ver_adr[2]), 
+		.wb_dat_i  (wb_m2s_reg_ver_dat), 
+		.wb_dat_o  (wb_s2m_reg_ver_dat),
+		.wb_we     (wb_m2s_reg_ver_we),
+		.wb_stb    (wb_m2s_reg_ver_stb),
+		.wb_cyc    (wb_m2s_reg_ver_cyc), 
+		.wb_ack    (wb_s2m_reg_ver_ack), 
+		.reg_i	  (VERSION),
+		.reg_o	  ()
 	);
 	assign wb_s2m_reg_csr_err = 0;
 	assign wb_s2m_reg_csr_rty = 0;
