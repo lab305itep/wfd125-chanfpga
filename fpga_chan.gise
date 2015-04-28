@@ -37,6 +37,9 @@
     <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/trce.xmsgs"/>
     <file xil_pn:fileType="FILE_XMSGS" xil_pn:name="_xmsgs/xst.xmsgs"/>
     <file xil_pn:branch="BehavioralSim" xil_pn:fileType="FILE_ISIM_EXE" xil_pn:name="arbitter_isim_beh.exe"/>
+    <file xil_pn:fileType="FILE_XST_PROJECT" xil_pn:name="bitslip.prj"/>
+    <file xil_pn:fileType="FILE_XST_STX" xil_pn:name="bitslip.stx"/>
+    <file xil_pn:fileType="FILE_XST" xil_pn:name="bitslip.xst"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_BITGEN_REPORT" xil_pn:name="fpga_chan.bgn" xil_pn:subbranch="FPGAConfiguration"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_BIT" xil_pn:name="fpga_chan.bit" xil_pn:subbranch="FPGAConfiguration"/>
     <file xil_pn:branch="Implementation" xil_pn:fileType="FILE_NGDBUILD_LOG" xil_pn:name="fpga_chan.bld"/>
@@ -113,37 +116,9 @@
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="InputAdded"/>
       <status xil_pn:value="InputChanged"/>
+      <status xil_pn:value="InputRemoved"/>
       <status xil_pn:value="OutputChanged"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/gtprcv4.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/inoutreg.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_arbiter.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_data_resize.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_mux.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_bit_ctrl.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_byte_ctrl.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_slave.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/xspi_master.v"/>
-      <outfile xil_pn:name="NextP23.v"/>
-      <outfile xil_pn:name="NextP9.v"/>
-      <outfile xil_pn:name="adc1rcv.v"/>
-      <outfile xil_pn:name="adc4rcv.v"/>
-      <outfile xil_pn:name="adccheck.v"/>
-      <outfile xil_pn:name="arbitter.v"/>
-      <outfile xil_pn:name="checkseq.v"/>
-      <outfile xil_pn:name="fpga_chan.v"/>
-      <outfile xil_pn:name="fpga_chan.vh"/>
-      <outfile xil_pn:name="inpreg16.v"/>
-      <outfile xil_pn:name="parreg16.v"/>
-      <outfile xil_pn:name="prc1chan.v"/>
-      <outfile xil_pn:name="spi_wbmaster.v"/>
-      <outfile xil_pn:name="sumcalc.v"/>
-      <outfile xil_pn:name="test1chan.v"/>
-      <outfile xil_pn:name="test_wbmaster.v"/>
-      <outfile xil_pn:name="testarb.v"/>
-      <outfile xil_pn:name="wb_intercon.v"/>
-      <outfile xil_pn:name="wb_intercon.vh"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
     <transform xil_pn:end_ts="1414448002" xil_pn:name="TRAN_xawsToSimhdl" xil_pn:prop_ck="-5843732845760961748" xil_pn:start_ts="1414448002">
       <status xil_pn:value="SuccessfullyRun"/>
@@ -175,37 +150,9 @@
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="InputChanged"/>
+      <status xil_pn:value="InputRemoved"/>
       <status xil_pn:value="OutputChanged"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/gtprcv4.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/inoutreg.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_arbiter.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_data_resize.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_mux.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_bit_ctrl.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_byte_ctrl.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_slave.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/include/i2c_master_slave_defines.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/xspi_master.v"/>
-      <outfile xil_pn:name="NextP23.v"/>
-      <outfile xil_pn:name="NextP9.v"/>
-      <outfile xil_pn:name="adc1rcv.v"/>
-      <outfile xil_pn:name="adc4rcv.v"/>
-      <outfile xil_pn:name="adccheck.v"/>
-      <outfile xil_pn:name="arbitter.v"/>
-      <outfile xil_pn:name="checkseq.v"/>
-      <outfile xil_pn:name="fpga_chan.v"/>
-      <outfile xil_pn:name="fpga_chan.vh"/>
-      <outfile xil_pn:name="inpreg16.v"/>
-      <outfile xil_pn:name="parreg16.v"/>
-      <outfile xil_pn:name="prc1chan.v"/>
-      <outfile xil_pn:name="spi_wbmaster.v"/>
-      <outfile xil_pn:name="sumcalc.v"/>
-      <outfile xil_pn:name="test1chan.v"/>
-      <outfile xil_pn:name="test_wbmaster.v"/>
-      <outfile xil_pn:name="testarb.v"/>
-      <outfile xil_pn:name="wb_intercon.v"/>
-      <outfile xil_pn:name="wb_intercon.vh"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
     <transform xil_pn:end_ts="1415794001" xil_pn:in_ck="-6009706476087474644" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-3054895360949952553" xil_pn:start_ts="1415793997">
       <status xil_pn:value="SuccessfullyRun"/>
@@ -215,13 +162,9 @@
       <status xil_pn:value="OutOfDateForOutputs"/>
       <status xil_pn:value="InputAdded"/>
       <status xil_pn:value="InputChanged"/>
+      <status xil_pn:value="InputRemoved"/>
       <status xil_pn:value="OutputChanged"/>
-      <outfile xil_pn:name="fuse.log"/>
-      <outfile xil_pn:name="isim"/>
-      <outfile xil_pn:name="isim.log"/>
-      <outfile xil_pn:name="testarb_beh.prj"/>
-      <outfile xil_pn:name="testarb_isim_beh.exe"/>
-      <outfile xil_pn:name="xilinxsim.ini"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
     <transform xil_pn:end_ts="1415794002" xil_pn:in_ck="-8105702221184282287" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="-1134790474877881062" xil_pn:start_ts="1415794001">
       <status xil_pn:value="SuccessfullyRun"/>
@@ -272,87 +215,71 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1429031002" xil_pn:in_ck="7904511097744490739" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="5045978573246904445" xil_pn:start_ts="1429030963">
+    <transform xil_pn:end_ts="1429204564" xil_pn:in_ck="7904511097744490739" xil_pn:name="TRANEXT_xstsynthesize_spartan6" xil_pn:prop_ck="5045978573246904445" xil_pn:start_ts="1429204528">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
       <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputAdded"/>
+      <status xil_pn:value="InputChanged"/>
+      <status xil_pn:value="InputRemoved"/>
       <status xil_pn:value="OutputChanged"/>
-      <outfile xil_pn:name="_xmsgs/xst.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.lso"/>
-      <outfile xil_pn:name="fpga_chan.ngc"/>
-      <outfile xil_pn:name="fpga_chan.ngr"/>
-      <outfile xil_pn:name="fpga_chan.prj"/>
-      <outfile xil_pn:name="fpga_chan.stx"/>
-      <outfile xil_pn:name="fpga_chan.syr"/>
-      <outfile xil_pn:name="fpga_chan.xst"/>
-      <outfile xil_pn:name="fpga_chan_beh.prj"/>
-      <outfile xil_pn:name="fpga_chan_xst.xrpt"/>
-      <outfile xil_pn:name="webtalk_pn.xml"/>
-      <outfile xil_pn:name="xst"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
     <transform xil_pn:end_ts="1415488598" xil_pn:in_ck="-489406554845905847" xil_pn:name="TRAN_compileBCD2" xil_pn:prop_ck="-8119206654087777799" xil_pn:start_ts="1415488597">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1429031011" xil_pn:in_ck="-7289670977174878002" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="6142442345415038767" xil_pn:start_ts="1429031002">
+    <transform xil_pn:end_ts="1429204573" xil_pn:in_ck="-7289670977174878002" xil_pn:name="TRANEXT_ngdbuild_FPGA" xil_pn:prop_ck="6142442345415038767" xil_pn:start_ts="1429204564">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="_ngo"/>
-      <outfile xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.bld"/>
-      <outfile xil_pn:name="fpga_chan.ngd"/>
-      <outfile xil_pn:name="fpga_chan_ngdbuild.xrpt"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputRemoved"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
-    <transform xil_pn:end_ts="1429031149" xil_pn:in_ck="-2783683599449084031" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="162888403099749330" xil_pn:start_ts="1429031011">
+    <transform xil_pn:end_ts="1429204705" xil_pn:in_ck="-2783683599449084031" xil_pn:name="TRANEXT_map_spartan6" xil_pn:prop_ck="162888403099749330" xil_pn:start_ts="1429204573">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
-      <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="_xmsgs/map.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.pcf"/>
-      <outfile xil_pn:name="fpga_chan_map.map"/>
-      <outfile xil_pn:name="fpga_chan_map.mrp"/>
-      <outfile xil_pn:name="fpga_chan_map.ncd"/>
-      <outfile xil_pn:name="fpga_chan_map.ngm"/>
-      <outfile xil_pn:name="fpga_chan_map.xrpt"/>
-      <outfile xil_pn:name="fpga_chan_summary.xml"/>
-      <outfile xil_pn:name="fpga_chan_usage.xml"/>
+      <status xil_pn:value="NotReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputRemoved"/>
+      <status xil_pn:value="OutputChanged"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
-    <transform xil_pn:end_ts="1429031265" xil_pn:in_ck="8877314215306727226" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="3214117756270688487" xil_pn:start_ts="1429031149">
+    <transform xil_pn:end_ts="1429204807" xil_pn:in_ck="8877314215306727226" xil_pn:name="TRANEXT_par_spartan6" xil_pn:prop_ck="3214117756270688487" xil_pn:start_ts="1429204705">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
-      <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="_xmsgs/par.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.ncd"/>
-      <outfile xil_pn:name="fpga_chan.pad"/>
-      <outfile xil_pn:name="fpga_chan.par"/>
-      <outfile xil_pn:name="fpga_chan.ptwx"/>
-      <outfile xil_pn:name="fpga_chan.unroutes"/>
-      <outfile xil_pn:name="fpga_chan.xpi"/>
-      <outfile xil_pn:name="fpga_chan_pad.csv"/>
-      <outfile xil_pn:name="fpga_chan_pad.txt"/>
-      <outfile xil_pn:name="fpga_chan_par.xrpt"/>
+      <status xil_pn:value="NotReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputRemoved"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
-    <transform xil_pn:end_ts="1429031293" xil_pn:in_ck="-8519601766598801862" xil_pn:name="TRANEXT_bitFile_spartan6" xil_pn:prop_ck="-4881602148642137394" xil_pn:start_ts="1429031265">
+    <transform xil_pn:end_ts="1429204832" xil_pn:in_ck="-8519601766598801862" xil_pn:name="TRANEXT_bitFile_spartan6" xil_pn:prop_ck="-4881602148642137394" xil_pn:start_ts="1429204807">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
-      <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="_xmsgs/bitgen.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.bgn"/>
-      <outfile xil_pn:name="fpga_chan.bit"/>
-      <outfile xil_pn:name="fpga_chan.drc"/>
-      <outfile xil_pn:name="fpga_chan.ut"/>
-      <outfile xil_pn:name="usage_statistics_webtalk.html"/>
-      <outfile xil_pn:name="webtalk.log"/>
-      <outfile xil_pn:name="webtalk_pn.xml"/>
+      <status xil_pn:value="NotReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputRemoved"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
-    <transform xil_pn:end_ts="1429031265" xil_pn:in_ck="-93245693088237443" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416184" xil_pn:start_ts="1429031252">
+    <transform xil_pn:end_ts="1429204807" xil_pn:in_ck="-93245693088237443" xil_pn:name="TRAN_postRouteTrce" xil_pn:prop_ck="445577401284416184" xil_pn:start_ts="1429204793">
       <status xil_pn:value="SuccessfullyRun"/>
-      <status xil_pn:value="ReadyToRun"/>
-      <outfile xil_pn:name="_xmsgs/trce.xmsgs"/>
-      <outfile xil_pn:name="fpga_chan.twr"/>
-      <outfile xil_pn:name="fpga_chan.twx"/>
+      <status xil_pn:value="NotReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
+      <status xil_pn:value="OutOfDateForPredecessor"/>
+      <status xil_pn:value="OutOfDateForOutputs"/>
+      <status xil_pn:value="InputRemoved"/>
+      <status xil_pn:value="OutputRemoved"/>
     </transform>
   </transforms>
 

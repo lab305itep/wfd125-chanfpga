@@ -21,12 +21,10 @@
 // - do zero suppression
 // - produce master trigger block
 //		Self trigger block:
-//	10NN NNNN LLLL LLLL - N - channel number, L - data length 
-//	0000 XXXX XXXX XXXX - L words of ADC 12-bit data - only these words are counted by L
-//		MAster trigger block:
-//	11NN NNNN LLLL LLLL - N - channel number, L - data length 
-//	1TTT TTTT TTTT TTTT - T - trigger information
-// 0000 XXXX XXXX XXXX - L words of ADC 12-bit data - only these words are counted by L
+//	1NNN NNNL LLLL LLLL - N - channel number, L - data length in 16-bit words not including CW 
+// 0ttt nnnn nnnn nnnn - ttt - trigger type (1 - master, 0 - self)
+// 		n - token or selftrigger seq number
+//	0000 XXXX XXXX XXXX - L-1 words of ADC 12-bit data
 //////////////////////////////////////////////////////////////////////////////////
 module prc1chan(
 		input clk,					// 125MHz clock
@@ -194,7 +192,9 @@ module prc1chan(
 					trg_state <= ST_STCOPY;
 					swfaddr <= wfaddr;			// save write fifo address if we will have to abort on real trigger
 					raddr <= wwaddr - swinbeg[9:0];
-					tofifo = {2'b10, num, winlen[7:0]};	// 2'b10 - self trigger signature
+					tofifo[15] = 1;
+					tofifo[14:9] = num;
+					tofifo[8:0] = winlen[8:0];
 					wfaddr <= wfaddr + 1;
 					copied <= 0;
 				end
@@ -215,14 +215,16 @@ module prc1chan(
 				end
 			end
 		ST_MTRIG: begin
-				tofifo = {2'b11, num, winlen[7:0]};	// 2'b11 - master trigger signature
+				tofifo[15] = 1;
+				tofifo[14:9] = num;
+				tofifo[8:0] = winlen[8:0] + 1;
 				wfaddr <= wfaddr + 1;
 				raddr <= wwaddr - winbeg[9:0];
 				trg_state <= ST_MTNUM;
 				zthr_flag <= 0;
 			end
 		ST_MTNUM: begin
-				tofifo = trg_data;
+				tofifo = {4'b0001 ,trg_data[11:0]};
 				wfaddr <= wfaddr + 1;
 				trg_state <= ST_MTCOPY;
 				copied <= 0;
