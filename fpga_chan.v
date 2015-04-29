@@ -30,11 +30,9 @@
 //	 0 - trigger from the communication Xilinx
 //  3:1 - summs from the other Xilinxes.
 //		CSR bits:
-//	3:0 - pattern for ADC receiver check
-//	6:4 - counter max = 2**(16 + 2*CSR[6:4])
+//	3:0 - pattern for ADC receiver checks
+//	6:4 - counter max = 2**(16 + 2*CSR[6:4]) for ADC receiver checks
 //	7   - check start - edge sensitive  (ready on read)
-//	8   - Disable Bitslip
-//	9   - reset BitSlip
 // 15  - raw mode: no selftrigger, nothing to sumcalc, raw data blocks on master trigger 
 //`
 //		Array registers:
@@ -108,27 +106,36 @@ module fpga_chan(
 `include "version.vh"
 
 //		Wires and registers
-	wire CLK125;
-	wire [191:0] D_s;					// data from ADC
-	wire [63:0]  gtp_data_i;		// data to GTP
-	wire [3:0]   gtp_comma_i;
-	wire [63:0]  gtp_data_o; 		// data ftom GTP
-	wire [3:0]   gtp_comma_o;		
-	wire [31:0]  CSR;
+
+	// ADC clocks, frames and data organized into buses
+	wire	[7:0]		ACLK;		// input clocks from ADC
+	wire	[7:0]		AFRM;		// input frame from ADC
+	wire	[63:0]	ADAT;		// input data from ADC
+	assign	ACLK = {ACD, ACC, ACB, ACA};
+	assign	AFRM = {AFD, AFC, AFB, AFA};
+	assign	ADAT = {ADD, ADC, ADB, ADA};
+
+	wire 				CLK125;				//	GTP reciever clock = system clock
+	wire 	[3:0] 	ADCCLK;				//	clocks accompanying ADC deserialized data
+	wire 	[191:0] 	ADCDAT;				// deserialized data from ADC
+	wire 	[63:0]  	gtp_data_i;			// data to GTP
+	wire 	[3:0]   	gtp_comma_i;		// k-char signature to GTP
+	wire 	[63:0]  	gtp_data_o; 		// data ftom GTP
+	wire 	[3:0]   	gtp_comma_o;		// k-char signature from GTP
+	wire [31:0]  	CSR;					// command and status register
+	wire 				seq_ready;			// checking sequenser ready
+	wire 				seq_reset;			// checking counters reset
+	wire 				seq_enable;			// check enable (check interval)
+	
 	wire [255:0]  par_array;
 	wire [255:0]  d2arb;
 	wire [191:0]  d2sum;
 	wire [255:0]  adc_ped;
-	wire [255:0]  adc_err;
 	wire [15:0]  req2arb;
 	wire [15:0]  ack4arb;
 	reg  [15:0]  trigger;
 	wire sum_trig;
-	wire seq_ready;
-	wire seq_reset;
-	wire seq_enable;
-	wire [63:0] bs_cnt;
-	wire [3:0] ADCCLK;
+
 	wire [15:0] fifo_full;
 	reg [15:0] fifo_full_cnt;
 
@@ -143,7 +150,7 @@ module fpga_chan(
 
 //		GTP communication module
 	
-	gtprcv4 # (.WB_DIVIDE(5), .WB_MULTIPLY(5)) UGTP (
+	gtprcv4 # (.WB_DIVIDE(2), .WB_MULTIPLY(2)) UGTP (		// 125 MHz for wishbone
 		.rxpin		({RX3, RX2, RX1, RX0}),	// input data pins
 		.txpin		({TX3, TX2, TX1, TX0}),	// output data pins
 		.clkpin		(RCLK),						// input clock pins - tile0 package pins A10/B10
@@ -155,61 +162,6 @@ module fpga_chan(
 		.charisk_i  (gtp_comma_i),
 		.locked  	()
     );
-
-//		SPI to ADCs
-	wire [3:0] empty_spi_cs;
-	xspi_master  #(
-		.CLK_DIV (49),
-		.CLK_POL (1'b0)
-	) adc_spi (
-		.wb_rst    	(wb_rst),
-		.wb_clk   	(wb_clk),
-		.wb_we   	(wb_m2s_adc_spi_we),
-		.wb_dat_i	(wb_m2s_adc_spi_dat[15:0]),
-		.wb_dat_o	(wb_s2m_adc_spi_dat[15:0]),
-		.wb_cyc		(wb_m2s_adc_spi_cyc),
-		.wb_stb		(wb_m2s_adc_spi_stb),
-		.wb_ack		(wb_s2m_adc_spi_ack),
-		.spi_dat   (SPIDAT),
-		.spi_clk   (SPICLK),
-		.spi_cs    ({empty_spi_cs, SPISEL}),
-		.wb_adr		(wb_m2s_adc_spi_adr[2])
-	);
-	assign wb_s2m_adc_spi_err = 0;
-	assign wb_s2m_adc_spi_rty = 0;	
-	assign wb_s2m_adc_spi_dat[31:16] = 0;
-
-//		I2C to clock chip
-	wire I2CCLK_o;
-	wire I2CCLK_en;
-	wire I2CDAT_o;
-	wire I2CDAT_en;
-	assign wb_s2m_i2c_clk_err = 0;
-	assign wb_s2m_i2c_clk_rty = 0;
-	assign wb_s2m_i2c_clk_dat[31:8] = 0;
-	
-	i2c_master_slave i2c_clk (
-		.wb_clk_i  (wb_clk), 
-		.wb_rst_i  (wb_rst),		// active high 
-		.arst_i    (1'b0), 		// active high
-		.wb_adr_i  (wb_m2s_i2c_clk_adr[4:2]), 
-		.wb_dat_i  (wb_m2s_i2c_clk_dat[7:0]), 
-		.wb_dat_o  (wb_s2m_i2c_clk_dat[7:0]),
-		.wb_we_i   (wb_m2s_i2c_clk_we),
-		.wb_stb_i  (wb_m2s_i2c_clk_stb),
-		.wb_cyc_i  (wb_m2s_i2c_clk_cyc), 
-		.wb_ack_o  (wb_s2m_i2c_clk_ack), 
-		.wb_inta_o (),
-		.scl_pad_i (I2CCLK), 
-		.scl_pad_o (I2CCLK_o), 
-		.scl_padoen_o (I2CCLK_en), 	// active low ?
-		.sda_pad_i (I2CDAT), 
-		.sda_pad_o (I2CDAT_o), 
-		.sda_padoen_o (I2CDAT_en)		// active low ?
-	);
-
-   assign I2CCLK = (!I2CCLK_en) ? (I2CCLK_o) : 1'bz;
-   assign I2CDAT = (!I2CDAT_en) ? (I2CDAT_o) : 1'bz;
 
 //		SPI from the master Xilinx - master on the WB-bus
 	spi_wbmaster spi_master(
@@ -269,6 +221,61 @@ module fpga_chan(
 	);
 	assign wb_s2m_reg_csr_err = 0;
 	assign wb_s2m_reg_csr_rty = 0;
+
+//		SPI to ADCs
+	wire [3:0] empty_spi_cs;
+	xspi_master  #(
+		.CLK_DIV (49),
+		.CLK_POL (1'b0)
+	) adc_spi (
+		.wb_rst    	(wb_rst),
+		.wb_clk   	(wb_clk),
+		.wb_we   	(wb_m2s_adc_spi_we),
+		.wb_dat_i	(wb_m2s_adc_spi_dat[15:0]),
+		.wb_dat_o	(wb_s2m_adc_spi_dat[15:0]),
+		.wb_cyc		(wb_m2s_adc_spi_cyc),
+		.wb_stb		(wb_m2s_adc_spi_stb),
+		.wb_ack		(wb_s2m_adc_spi_ack),
+		.spi_dat   (SPIDAT),
+		.spi_clk   (SPICLK),
+		.spi_cs    ({empty_spi_cs, SPISEL}),
+		.wb_adr		(wb_m2s_adc_spi_adr[2])
+	);
+	assign wb_s2m_adc_spi_err = 0;
+	assign wb_s2m_adc_spi_rty = 0;	
+	assign wb_s2m_adc_spi_dat[31:16] = 0;
+
+//		I2C to clock chip
+	wire I2CCLK_o;
+	wire I2CCLK_en;
+	wire I2CDAT_o;
+	wire I2CDAT_en;
+	assign wb_s2m_i2c_clk_err = 0;
+	assign wb_s2m_i2c_clk_rty = 0;
+	assign wb_s2m_i2c_clk_dat[31:8] = 0;
+	
+	i2c_master_slave i2c_clk (
+		.wb_clk_i  (wb_clk), 
+		.wb_rst_i  (wb_rst),		// active high 
+		.arst_i    (1'b0), 		// active high
+		.wb_adr_i  (wb_m2s_i2c_clk_adr[4:2]), 
+		.wb_dat_i  (wb_m2s_i2c_clk_dat[7:0]), 
+		.wb_dat_o  (wb_s2m_i2c_clk_dat[7:0]),
+		.wb_we_i   (wb_m2s_i2c_clk_we),
+		.wb_stb_i  (wb_m2s_i2c_clk_stb),
+		.wb_cyc_i  (wb_m2s_i2c_clk_cyc), 
+		.wb_ack_o  (wb_s2m_i2c_clk_ack), 
+		.wb_inta_o (),
+		.scl_pad_i (I2CCLK), 
+		.scl_pad_o (I2CCLK_o), 
+		.scl_padoen_o (I2CCLK_en), 	// active low ?
+		.sda_pad_i (I2CDAT), 
+		.sda_pad_o (I2CDAT_o), 
+		.sda_padoen_o (I2CDAT_en)		// active low ?
+	);
+
+   assign I2CCLK = (!I2CCLK_en) ? (I2CCLK_o) : 1'bz;
+   assign I2CDAT = (!I2CDAT_en) ? (I2CDAT_o) : 1'bz;
 	
 //		register array
 	parreg16 #(.ADRBITS(4)) reg_array (
@@ -302,100 +309,46 @@ module fpga_chan(
 	assign wb_s2m_ped_array_rty = 0;
 	assign wb_s2m_ped_array_dat[31:16] = 16'h0000;
 
-//		input array for ADC error counters
-	inpreg16 #(.ADRBITS(4)) err_array (
-		.wb_clk    (wb_clk), 
-		.wb_adr    (wb_m2s_err_array_adr[5:2]), 
-		.wb_dat_i  (wb_m2s_err_array_dat[15:0]), 
-		.wb_dat_o  (wb_s2m_err_array_dat[15:0]),
-		.wb_we     (wb_m2s_err_array_we),
-		.wb_stb    (wb_m2s_err_array_stb),
-		.wb_cyc    (wb_m2s_err_array_cyc), 
-		.wb_ack    (wb_s2m_err_array_ack), 
-		.reg_i	  (adc_err)
-	);
-	assign wb_s2m_err_array_err = 0;
-	assign wb_s2m_err_array_rty = 0;
-	assign wb_s2m_err_array_dat[31:16] = 16'h0000;
+	// ADC data recievers
 
-//		input array for Bitslip counters
-	inpreg16 #(.ADRBITS(3)) bs_array (
-		.wb_clk    (wb_clk), 
-		.wb_adr    (wb_m2s_bs_array_adr[4:2]), 
-		.wb_dat_i  (wb_m2s_bs_array_dat[15:0]), 
-		.wb_dat_o  (wb_s2m_bs_array_dat[15:0]),
-		.wb_we     (wb_m2s_bs_array_we),
-		.wb_stb    (wb_m2s_bs_array_stb),
-		.wb_cyc    (wb_m2s_bs_array_cyc), 
-		.wb_ack    (wb_s2m_bs_array_ack), 
-		.reg_i	  ({16'h0000, 16'h0000, 16'h0000, fifo_full_cnt, bs_cnt})
-	);
-	assign wb_s2m_bs_array_err = 0;
-	assign wb_s2m_bs_array_rty = 0;
-	assign wb_s2m_bs_array_dat[31:16] = 16'h0000;
-
-//	ADC receivers
-	adc4rcv DINA_rcv (
-		.CLK    	(ADCCLK[0]),// ADC data clock
-		.CLKIN  	(ACA),		// input clock from ADC (375 MHz)
-		.DIN    	(ADA),		// Input data from ADC
-		.FR	  	(AFA),		// Input frame from ADC 
-		.DOUT		(D_s[47:0]),	// output data (CLK clocked)
-		.BSENABLE (!CSR[8]),
-		.reset	(CSR[9]),
-		.bs_cnt  (bs_cnt[15:0]),
-		.bs_reset(seq_reset),
-		.bs_cntenb(seq_enable),
-		.debug  	()
-	);
-	adc4rcv DINB_rcv (
-		.CLK    	(ADCCLK[1]),// ADC data clock
-		.CLKIN  	(ACB),		// input clock from ADC (375 MHz)
-		.DIN    	(ADB),		// Input data from ADC
-		.FR	   (AFB),		// Input frame from ADC 
-		.DOUT		(D_s[95:48]),// output data (CLK clocked)
-		.BSENABLE (!CSR[8]),
-		.reset	(CSR[9]),
-		.bs_cnt  (bs_cnt[31:16]),
-		.bs_reset(seq_reset),
-		.bs_cntenb(seq_enable),
-		.debug  	()
-   );
-	adc4rcv DINC_rcv (
-		.CLK    	(ADCCLK[2]),// ADC data clock
-		.CLKIN  	(ACC),		// input clock from ADC (375 MHz)
-		.DIN    	(ADC),		// Input data from ADC
-		.FR	   (AFC),		// Input frame from ADC 
-		.DOUT		(D_s[143:96]),	// output data (CLK clocked)
-		.BSENABLE (!CSR[8]),
-		.reset	(CSR[9]),
-		.bs_cnt  (bs_cnt[47:32]),
-		.bs_reset(seq_reset),
-		.bs_cntenb(seq_enable),
-		.debug  	()
-   );
-	adc4rcv DIND_rcv (
-		.CLK    	(ADCCLK[3]),// ADC data clock
-		.CLKIN  	(ACD),		// input clock from ADC (375 MHz)
-		.DIN    	(ADD),		// Input data from ADC
-		.FR	   (AFD),		// Input frame from ADC 
-		.DOUT		(D_s[191:144]),	// output data (CLK clocked)
-		.BSENABLE (!CSR[8]),
-		.reset	(CSR[9]),
-		.bs_cnt  (bs_cnt[63:48]),
-		.bs_reset(seq_reset),
-		.bs_cntenb(seq_enable),
-		.debug  	()	 
-   );
+	wire	[3:0]	wb_adc_rcv_ack;
+	assign wb_s2m_adc_rcv_ack = |wb_adc_rcv_ack;
+	
+	genvar i;
+	generate
+		for (i=0; i<4; i = i + 1) begin: URCV
+			adcrcv ADCRCV(
+				// inputs from ADC
+				.CLKIN		(ACLK[2*i+1:2*i]),		// input clock from ADC (375 MHz)
+				.DIN			(ADAT[16*i+15:16*i]),	// Input data from ADC
+				.FR			(AFRM[2*i+1:2*i]),		// Input frame from ADC 
+				// outputs to further processing
+				.CLK			(ADCCLK[i]),				// data clock derived from ADC clock
+				.DOUT			(ADCDAT[48*i+47:48*i]),	// output data (CLK clocked)
+				//	WB interface
+				.wb_clk		(wb_clk),
+				.wb_cyc		(wb_m2s_adc_rcv_cyc),
+				.wb_stb		(wb_m2s_adc_rcv_stb & (wb_m2s_adc_rcv_adr[7:6] == i)),
+				.wb_we		(wb_m2s_adc_rcv_we),
+				.wb_adr		(wb_m2s_adc_rcv_adr[5:2]),
+				.wb_dat_i	(wb_m2s_adc_rcv_dat),
+				.wb_ack		(wb_adc_rcv_ack[i]),
+				.wb_dat_o	(wb_s2m_adc_rcv_dat),
+				// checking signals
+				.chk_type	(CSR[3:0]),					// test pattern number to check (from main CSR)
+				.chk_rst		(seq_reset),				// reset error counters	(from checkseq)
+				.chk_enb		(seq_enable)				// enable checking (checking interval, from checkseq)
+			);
+		end
+	endgenerate
 
 //		channel processing
-	genvar i;
 	generate
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
 			.clk(CLK125),
 			.ADCCLK(ADCCLK[i/4]),
-			.data(D_s[12*i+11:12*i]), 
+			.data(ADCDAT[12*i+11:12*i]), 
 			.d2sum(d2sum[12*i+11:12*i]), 
 			.ped(adc_ped[16*i+11:16*i]), 
 			.zthr(par_array[PAR_ZTHR*16+15:PAR_ZTHR*16]), 
@@ -417,14 +370,6 @@ module fpga_chan(
 			.raw(CSR[15])
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
-		adccheck UCHECK (
-			.data(D_s[12*i+11:12*i]),	// ADC data received
-			.clk(ADCCLK[i/4]),					// ADC clock
-			.cnt(adc_err[16*i+15:16*i]),	//	Error counter
-			.count(seq_enable),			// Count errors enable
-			.reset(seq_reset),			// Reset error counter
-			.type(CSR[3:0])	
-		);
 		end
 	endgenerate
 	

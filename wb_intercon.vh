@@ -65,19 +65,6 @@ wire        wb_s2m_i2c_clk_ack;
 wire        wb_s2m_i2c_clk_err;
 wire        wb_s2m_i2c_clk_stall;
 wire        wb_s2m_i2c_clk_rty;
-wire [31:0] wb_m2s_bs_array_adr;
-wire [31:0] wb_m2s_bs_array_dat;
-wire  [3:0] wb_m2s_bs_array_sel;
-wire        wb_m2s_bs_array_we;
-wire        wb_m2s_bs_array_cyc;
-wire        wb_m2s_bs_array_stb;
-wire  [2:0] wb_m2s_bs_array_cti;
-wire  [1:0] wb_m2s_bs_array_bte;
-wire [31:0] wb_s2m_bs_array_dat;
-wire        wb_s2m_bs_array_ack;
-wire        wb_s2m_bs_array_err;
-wire        wb_s2m_bs_array_stall;
-wire        wb_s2m_bs_array_rty;
 wire [31:0] wb_m2s_reg_array_adr;
 wire [31:0] wb_m2s_reg_array_dat;
 wire  [3:0] wb_m2s_reg_array_sel;
@@ -104,19 +91,19 @@ wire        wb_s2m_ped_array_ack;
 wire        wb_s2m_ped_array_err;
 wire        wb_s2m_ped_array_stall;
 wire        wb_s2m_ped_array_rty;
-wire [31:0] wb_m2s_err_array_adr;
-wire [31:0] wb_m2s_err_array_dat;
-wire  [3:0] wb_m2s_err_array_sel;
-wire        wb_m2s_err_array_we;
-wire        wb_m2s_err_array_cyc;
-wire        wb_m2s_err_array_stb;
-wire  [2:0] wb_m2s_err_array_cti;
-wire  [1:0] wb_m2s_err_array_bte;
-wire [31:0] wb_s2m_err_array_dat;
-wire        wb_s2m_err_array_ack;
-wire        wb_s2m_err_array_err;
-wire        wb_s2m_err_array_stall;
-wire        wb_s2m_err_array_rty;
+wire [31:0] wb_m2s_adc_rcv_adr;
+wire [31:0] wb_m2s_adc_rcv_dat;
+wire  [3:0] wb_m2s_adc_rcv_sel;
+wire        wb_m2s_adc_rcv_we;
+wire        wb_m2s_adc_rcv_cyc;
+wire        wb_m2s_adc_rcv_stb;
+wire  [2:0] wb_m2s_adc_rcv_cti;
+wire  [1:0] wb_m2s_adc_rcv_bte;
+wire [31:0] wb_s2m_adc_rcv_dat;
+wire        wb_s2m_adc_rcv_ack;
+wire        wb_s2m_adc_rcv_err;
+wire        wb_s2m_adc_rcv_stall;
+wire        wb_s2m_adc_rcv_rty;
 
 wb_intercon wb_intercon0
    (.wb_clk_i              (wb_clk),
@@ -186,19 +173,6 @@ wb_intercon wb_intercon0
     .wb_i2c_clk_err_i      (wb_s2m_i2c_clk_err),
     .wb_i2c_clk_stall_i    (wb_s2m_i2c_clk_stall),
     .wb_i2c_clk_rty_i      (wb_s2m_i2c_clk_rty),
-    .wb_bs_array_adr_o     (wb_m2s_bs_array_adr),
-    .wb_bs_array_dat_o     (wb_m2s_bs_array_dat),
-    .wb_bs_array_sel_o     (wb_m2s_bs_array_sel),
-    .wb_bs_array_we_o      (wb_m2s_bs_array_we),
-    .wb_bs_array_cyc_o     (wb_m2s_bs_array_cyc),
-    .wb_bs_array_stb_o     (wb_m2s_bs_array_stb),
-    .wb_bs_array_cti_o     (wb_m2s_bs_array_cti),
-    .wb_bs_array_bte_o     (wb_m2s_bs_array_bte),
-    .wb_bs_array_dat_i     (wb_s2m_bs_array_dat),
-    .wb_bs_array_ack_i     (wb_s2m_bs_array_ack),
-    .wb_bs_array_err_i     (wb_s2m_bs_array_err),
-    .wb_bs_array_stall_i   (wb_s2m_bs_array_stall),
-    .wb_bs_array_rty_i     (wb_s2m_bs_array_rty),
     .wb_reg_array_adr_o    (wb_m2s_reg_array_adr),
     .wb_reg_array_dat_o    (wb_m2s_reg_array_dat),
     .wb_reg_array_sel_o    (wb_m2s_reg_array_sel),
@@ -225,17 +199,17 @@ wb_intercon wb_intercon0
     .wb_ped_array_err_i    (wb_s2m_ped_array_err),
     .wb_ped_array_stall_i  (wb_s2m_ped_array_stall),
     .wb_ped_array_rty_i    (wb_s2m_ped_array_rty),
-    .wb_err_array_adr_o    (wb_m2s_err_array_adr),
-    .wb_err_array_dat_o    (wb_m2s_err_array_dat),
-    .wb_err_array_sel_o    (wb_m2s_err_array_sel),
-    .wb_err_array_we_o     (wb_m2s_err_array_we),
-    .wb_err_array_cyc_o    (wb_m2s_err_array_cyc),
-    .wb_err_array_stb_o    (wb_m2s_err_array_stb),
-    .wb_err_array_cti_o    (wb_m2s_err_array_cti),
-    .wb_err_array_bte_o    (wb_m2s_err_array_bte),
-    .wb_err_array_dat_i    (wb_s2m_err_array_dat),
-    .wb_err_array_ack_i    (wb_s2m_err_array_ack),
-    .wb_err_array_err_i    (wb_s2m_err_array_err),
-    .wb_err_array_stall_i  (wb_s2m_err_array_stall),
-    .wb_err_array_rty_i    (wb_s2m_err_array_rty));
+    .wb_adc_rcv_adr_o      (wb_m2s_adc_rcv_adr),
+    .wb_adc_rcv_dat_o      (wb_m2s_adc_rcv_dat),
+    .wb_adc_rcv_sel_o      (wb_m2s_adc_rcv_sel),
+    .wb_adc_rcv_we_o       (wb_m2s_adc_rcv_we),
+    .wb_adc_rcv_cyc_o      (wb_m2s_adc_rcv_cyc),
+    .wb_adc_rcv_stb_o      (wb_m2s_adc_rcv_stb),
+    .wb_adc_rcv_cti_o      (wb_m2s_adc_rcv_cti),
+    .wb_adc_rcv_bte_o      (wb_m2s_adc_rcv_bte),
+    .wb_adc_rcv_dat_i      (wb_s2m_adc_rcv_dat),
+    .wb_adc_rcv_ack_i      (wb_s2m_adc_rcv_ack),
+    .wb_adc_rcv_err_i      (wb_s2m_adc_rcv_err),
+    .wb_adc_rcv_stall_i    (wb_s2m_adc_rcv_stall),
+    .wb_adc_rcv_rty_i      (wb_s2m_adc_rcv_rty));
 

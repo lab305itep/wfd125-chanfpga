@@ -14,15 +14,16 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module adc1rcvd(
-		input CLK,					// General FPGA clock for SERDES bitslip and IODELAY inc/rst timing
-		input  [1:0] CLKIN,		// clocks from ADC
-		input  [1:0] DIN,			// one line data from ADC
-		output [5:0] DOUT,		// deserialized data to FPGA
+		input 			CLK,		// General FPGA clock for SERDES and its bitslip timing
+		input  [1:0] 	CLKIN,	// clocks from ADC
+		input  [1:0] 	DIN,		// one line data from ADC
+		output [5:0] 	DOUT,		// deserialized data to FPGA
 		input IOCE,					// SERDESSTROBE
 		input BS,					// bitslip enable
+		input SRST,					// asyncronous reset to ISERDES
+		input DCLK,					// clocks for IODELAY inc/reset commands
 		input DINC,					// increment command to IODELAY
-		input DRST,					// reset command to IODELAY
-		input SRST					// asyncronous reset to ISERDES
+		input DRST					// reset command to IODELAY
    );
 
 	wire DIN_s;
@@ -59,7 +60,7 @@ module adc1rcvd(
       .TOUT(),         		// 1-bit output: Delayed 3-state output
       .CAL(1'b0),          // 1-bit input: Initiate calibration input
       .CE(DINC),           // 1-bit input: Enable INC input
-      .CLK(CLK),           // 1-bit input: Clock input
+      .CLK(DCLK),          // 1-bit input: Clock input
       .IDATAIN(DIN_s),     // 1-bit input: Data input (connect to top-level port or I/O buffer)
       .INC(DINC),          // 1-bit input: Increment / decrement input
       .IOCLK0(CLKIN[0]),   // 1-bit input: Input from the I/O clock network
