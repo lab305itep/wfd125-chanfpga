@@ -313,7 +313,7 @@ module fpga_chan(
 
 	wire	[3:0]	wb_adc_rcv_ack;
 	assign wb_s2m_adc_rcv_ack = |wb_adc_rcv_ack;
-	
+
 	genvar i;
 	generate
 		for (i=0; i<4; i = i + 1) begin: URCV

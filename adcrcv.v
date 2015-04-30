@@ -122,7 +122,7 @@ module adcrcv(
 		.DIN		(FR),						// one line data from ADC
 		.DOUT		(FR_r),					// deserialized data to FPGA
 		.IOCE		(IOCE),					// SERDESSTROBE
-		.BS		(BS[8]),					// bitslip pulse
+		.BS		(BS[8]),					// bitslip pulse - master bs
 		.SRST		(csr[11]),				// asyncronous reset to ISERDES
 		.DCLK		(wb_clk),				// clocks for IODELAY inc/reset commands
 		.DINC		(csr[8] & csr[9]),	// increment command to IODELAY
@@ -133,7 +133,7 @@ module adcrcv(
     .CLK			(CLK),		// ADC clock divided
     .DATA		(FR_r),		// ADC one line 6-bit data, CLK timed
 	 .BSENB		(csr[13]),	// allow master bitslip
-    .BS			(BS[8])			// master coherent bitslip
+    .BS			(BS[8])		// master coherent bitslip
     );
 
 //	Recieving data
@@ -147,7 +147,7 @@ module adcrcv(
 				.DIN		(DIN[2*i+1:2*i]),		// one line data from ADC
 				.DOUT		(DOUT[6*i+5:6*i]),	// deserialized data to FPGA
 				.IOCE		(IOCE),					// SERDESSTROBE
-				.BS		(BS[8] | BS[i]),		// bitslip pulse
+				.BS		(BS[8] | BS[i]),		// bitslip pulse - this or master bs
 				.SRST		(csr[11]),				// asyncronous reset to ISERDES
 				.DCLK		(wb_clk),				// clocks for IODELAY inc/reset commands
 				.DINC		(csr[i] & csr[9]),	// increment command to IODELAY

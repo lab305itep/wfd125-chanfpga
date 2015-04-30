@@ -63,8 +63,8 @@ module adc1rcvd(
       .CLK(DCLK),          // 1-bit input: Clock input
       .IDATAIN(DIN_s),     // 1-bit input: Data input (connect to top-level port or I/O buffer)
       .INC(DINC),          // 1-bit input: Increment / decrement input
-      .IOCLK0(CLKIN[0]),   // 1-bit input: Input from the I/O clock network
-      .IOCLK1(CLKIN[1]),   // 1-bit input: Input from the I/O clock network
+      .IOCLK0(CLKIN[1]),   // 1-bit input: Input from the I/O clock network
+      .IOCLK1(CLKIN[0]),   // 1-bit input: Input from the I/O clock network
       .ODATAIN(1'b0),	   // 1-bit input: Output data input from output register or OSERDES2.
       .RST(DRST),          // 1-bit input: Reset to zero or 1/2 of total delay period
       .T(1'b1)             // 1-bit input: 3-state input signal
@@ -97,7 +97,7 @@ module adc1rcvd(
       .CLK0(CLKIN[0]),  // 1-bit input: I/O clock network input
       .CLK1(CLKIN[1]),  // 1-bit input: Secondary I/O clock network input
       .CLKDIV(CLK),     // 1-bit input: FPGA logic domain clock input
-      .D(DIN_d),        // 1-bit input: Input data
+      .D(DIN_s),        // 1-bit input: Input data
       .IOCE(IOCE),      // 1-bit input: Data strobe input
       .RST(SRST),      // 1-bit input: Asynchronous reset input
       .SHIFTIN(1'b0)    // 1-bit input: Cascade input signal for master/slave I/O
