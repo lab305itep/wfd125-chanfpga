@@ -21,8 +21,8 @@ module adc1rcvd(
 		input IOCE,					// SERDESSTROBE
 		input BS,					// bitslip enable
 		input SRST,					// asyncronous reset to ISERDES
-		input DCLK,					// clocks for IODELAY inc/reset commands
 		input DINC,					// increment command to IODELAY
+		input DCAL,					// CAL command to IODELAY
 		input DRST					// reset command to IODELAY
    );
 
@@ -40,7 +40,8 @@ module adc1rcvd(
    );
 
    IODELAY2 #(
-      .COUNTER_WRAPAROUND("STAY_AT_LIMIT"), 	// "STAY_AT_LIMIT" or "WRAPAROUND" 
+//      .COUNTER_WRAPAROUND("STAY_AT_LIMIT"), 	// "STAY_AT_LIMIT" or "WRAPAROUND" 
+      .COUNTER_WRAPAROUND("WRAPAROUND"), 		// "STAY_AT_LIMIT" or "WRAPAROUND" 
       .DATA_RATE("DDR"),                 		// "SDR" or "DDR" (probably doesn't matter untill cal)
       .DELAY_SRC("IDATAIN"),                 // "IO", "ODATAIN" or "IDATAIN" 
       .IDELAY2_VALUE(0),                 		// Delay value when IDELAY_MODE="PCI" (0-255)
@@ -58,19 +59,17 @@ module adc1rcvd(
       .DATAOUT2(), 			// 1-bit output: Delayed data output to general FPGA fabric
       .DOUT(),         		// 1-bit output: Delayed data output
       .TOUT(),         		// 1-bit output: Delayed 3-state output
-      .CAL(1'b0),          // 1-bit input: Initiate calibration input
+      .CAL(DCAL),          // 1-bit input: Initiate calibration input
       .CE(DINC),           // 1-bit input: Enable INC input
-      .CLK(DCLK),          // 1-bit input: Clock input
+      .CLK(CLK),           // 1-bit input: Clock input
       .IDATAIN(DIN_s),     // 1-bit input: Data input (connect to top-level port or I/O buffer)
       .INC(DINC),          // 1-bit input: Increment / decrement input
-      .IOCLK0(CLKIN[1]),   // 1-bit input: Input from the I/O clock network
-      .IOCLK1(CLKIN[0]),   // 1-bit input: Input from the I/O clock network
+      .IOCLK0(CLKIN[0]),   // 1-bit input: Input from the I/O clock network
+      .IOCLK1(CLKIN[1]),   // 1-bit input: Input from the I/O clock network
       .ODATAIN(1'b0),	   // 1-bit input: Output data input from output register or OSERDES2.
       .RST(DRST),          // 1-bit input: Reset to zero or 1/2 of total delay period
       .T(1'b1)             // 1-bit input: 3-state input signal
    );
-
-
 
   ISERDES2 #(
       .BITSLIP_ENABLE("TRUE"),      // Enable Bitslip Functionality (TRUE/FALSE)
@@ -83,8 +82,8 @@ module adc1rcvd(
       .CFB0(),           // 1-bit output: Clock feed-through route output
       .CFB1(),           // 1-bit output: Clock feed-through route output
       .DFB(),            // 1-bit output: Feed-through clock output
-      .FABRICOUT(debug), // 1-bit output: Unsynchrnonized data output
-      .INCDEC(),       	 // 1-bit output: Phase detector output
+      .FABRICOUT(), 		 // 1-bit output: Unsynchrnonized data output
+		.INCDEC(),       	 // 1-bit output: Phase detector output
       // Q1 - Q4: 1-bit (each) output: Registered outputs to FPGA logic
       .Q1(DOUT[3]),
       .Q2(DOUT[2]),
@@ -97,7 +96,7 @@ module adc1rcvd(
       .CLK0(CLKIN[0]),  // 1-bit input: I/O clock network input
       .CLK1(CLKIN[1]),  // 1-bit input: Secondary I/O clock network input
       .CLKDIV(CLK),     // 1-bit input: FPGA logic domain clock input
-      .D(DIN_s),        // 1-bit input: Input data
+      .D(DIN_d),        // 1-bit input: Input data
       .IOCE(IOCE),      // 1-bit input: Data strobe input
       .RST(SRST),      // 1-bit input: Asynchronous reset input
       .SHIFTIN(1'b0)    // 1-bit input: Cascade input signal for master/slave I/O

@@ -25,7 +25,8 @@
 //			11		(WC)	SERDES asyncronous reset, autoclear
 //			12		(RW)	allow bitslip on individual bit lines
 //			13		(RW)	allow coherent bitslip on all bit lines according to frame
-//			15-14	(RW)	unused
+//			14		(RW)	IODELAY calibrate, autoclear
+//			15		(RW)	unused
 //		1		(R)	ADC frequency counter
 //		2-5	(R)	ADC 0-3 test data error counters
 //		6		(R)	bitslip sticky indicators, any write to this reg clears all indicators
@@ -74,6 +75,9 @@ module adcrcv(
 	reg	[8:0]		bs_cap;				// bitslip capture
 	reg 	[7:0]		ins_cnt	[8:0];	// instability counters
 	reg	[15:0]	rdat;					// WB read register
+	reg   [8:0]    delay_inc;			// increment delay
+	reg   [1:0]    delay_pulse;		// make pulse on csr[9] leading edge
+	reg   [3:0]    autoclr;				// for autoclear in 2 wb_clk
 	 
 
 	// Recieving and processing clocks
@@ -110,6 +114,45 @@ module adcrcv(
       .IB		(CLKIN_s[0])      // 1-bit input: Secondary clock input
    );
 
+/*
+wire CLKIN_b;
+
+   IBUFGDS #(
+      .DIFF_TERM("TRUE"), // Differential Termination
+      .IOSTANDARD("LVDS_25") // Specifies the I/O standard for this buffer
+   ) IBUFGDS_inst (
+      .O(CLKIN_b),  // Clock buffer output
+      .I(CLKIN[0]),  // Diff_p clock buffer input
+      .IB(CLKIN[1]) // Diff_n clock buffer input
+   );
+
+   BUFIO2 #(
+      .DIVIDE(6),             // DIVCLK divider (1,3-8)
+      .DIVIDE_BYPASS("FALSE"), // Bypass the divider circuitry (TRUE/FALSE)
+      .I_INVERT("FALSE"),     // Invert clock (TRUE/FALSE)
+      .USE_DOUBLER("TRUE")   // Use doubler circuitry (TRUE/FALSE)
+   )
+   BUFIO2_p (
+      .DIVCLK(DIVCLK),             // 1-bit output: Divided clock output
+      .IOCLK(CLKIN_2[0]),               // 1-bit output: I/O output clock
+      .SERDESSTROBE(IOCE), // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
+      .I(CLKIN_b)                        // 1-bit input: Clock input (connect to IBUFG)
+   );
+
+   BUFIO2 #(
+      .DIVIDE(6),             // DIVCLK divider (1,3-8)
+      .DIVIDE_BYPASS("FALSE"), // Bypass the divider circuitry (TRUE/FALSE)
+      .I_INVERT("TRUE"),     // Invert clock (TRUE/FALSE)
+      .USE_DOUBLER("FALSE")   // Use doubler circuitry (TRUE/FALSE)
+   )
+   BUFIO2_n (
+      .DIVCLK(),             // 1-bit output: Divided clock output
+      .IOCLK(CLKIN_2[1]),               // 1-bit output: I/O output clock
+      .SERDESSTROBE(), // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
+      .I(CLKIN_b)                        // 1-bit input: Clock input (connect to IBUFG)
+   );
+*/
+
 	BUFG BUFG_inst (
       .O			(CLK), 				// 1-bit output: Clock buffer output
       .I			(DIVCLK)  			// 1-bit input: Clock buffer input
@@ -124,8 +167,8 @@ module adcrcv(
 		.IOCE		(IOCE),					// SERDESSTROBE
 		.BS		(BS[8]),					// bitslip pulse - master bs
 		.SRST		(csr[11]),				// asyncronous reset to ISERDES
-		.DCLK		(wb_clk),				// clocks for IODELAY inc/reset commands
-		.DINC		(csr[8] & csr[9]),	// increment command to IODELAY
+		.DINC		(delay_inc[8]),   	// increment command to IODELAY
+		.DCAL		(csr[14]),				// CAL command to IODELAY
 		.DRST		(csr[10])				// reset command to IODELAY
    );
 
@@ -149,8 +192,8 @@ module adcrcv(
 				.IOCE		(IOCE),					// SERDESSTROBE
 				.BS		(BS[8] | BS[i]),		// bitslip pulse - this or master bs
 				.SRST		(csr[11]),				// asyncronous reset to ISERDES
-				.DCLK		(wb_clk),				// clocks for IODELAY inc/reset commands
-				.DINC		(csr[i] & csr[9]),	// increment command to IODELAY
+				.DINC		(delay_inc[i]),	   // increment command to IODELAY
+				.DCAL		(csr[14]),				// CAL command to IODELAY
 				.DRST		(csr[10])				// reset command to IODELAY
 			);
 			
@@ -213,8 +256,8 @@ module adcrcv(
 		if	(chk_rst) begin
 			// asyncronous reset
 			ins_cnt[0] <= 0;
-		end else if (chk_enb & (FR_r != FR_d)) begin
-			// increment when previous data is not equal to current
+		end else if (chk_enb & (FR_r != FR_d) & ~(&ins_cnt[0])) begin
+			// increment when previous data is not equal to current untill full
 			ins_cnt[0] <= ins_cnt[0] + 1;
 		end
 	end 
@@ -230,13 +273,22 @@ module adcrcv(
 				if	(chk_rst) begin
 				// asyncronous reset
 					ins_cnt[i+1] <= 0;
-				end else if (chk_enb & (DOUT_d[6*i+5:6*i] != DOUT[6*i+5:6*i])) begin
-				// increment when previous data is not equal to current
+				end else if (chk_enb & (DOUT_d[6*i+5:6*i] != DOUT[6*i+5:6*i]) & ~(&ins_cnt[i+1])) begin
+				// increment when previous data is not equal to current untill full
 					ins_cnt[i+1] <= ins_cnt[i+1] + 1;
 				end
 			end 
 		end
 	endgenerate
+	
+	//	make IODEALY inc pulses
+	always @ (posedge CLK) begin
+		delay_pulse <= {delay_pulse[0], csr[9]};
+		delay_inc <= 0;
+		if (delay_pulse == 2'b01) begin
+			delay_inc <= csr[8:0];
+		end
+	end
 	
 	// Wishbone interface
 	assign wb_dat_o = (wb_ack) ? {16'h0000, rdat} : {32'hZZZZZZZZ};
@@ -246,11 +298,22 @@ module adcrcv(
 			// read regs
 			wb_ack <= 1;
 			case (wb_adr)
-				0:	rdat <= csr;										// csr
-				1: rdat <= frq_cnt[31:16];							// high bits of frequency counter
-				2 | 3 | 4 | 5: rdat <= err_cnt[wb_adr - 2];	// test data error counters
-				6: rdat <= {7'h00, bs_cap};							// bitslip capture
-				7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15: rdat <= {8'h00, ins_cnt[wb_adr - 7]};
+				0:	 rdat <= csr;										// csr
+				1:  rdat <= frq_cnt[31:16];							// high bits of frequency counter
+				2:  rdat <= err_cnt[0];
+				3:  rdat <= err_cnt[1];
+				4:  rdat <= err_cnt[2];
+				5:  rdat <= err_cnt[3];
+				6:  rdat <= {7'h00, bs_cap};							// bitslip capture
+				7:  rdat <= {8'h00, ins_cnt[0]};
+				8:  rdat <= {8'h00, ins_cnt[1]};
+				9:  rdat <= {8'h00, ins_cnt[2]};
+				10: rdat <= {8'h00, ins_cnt[3]};
+				11: rdat <= {8'h00, ins_cnt[4]};
+				12: rdat <= {8'h00, ins_cnt[5]};
+				13: rdat <= {8'h00, ins_cnt[6]};
+				14: rdat <= {8'h00, ins_cnt[7]};
+				15: rdat <= {8'h00, ins_cnt[8]};
 			endcase
 		end else if (wb_cyc & wb_stb) begin
 			wb_ack <= 1;
@@ -259,17 +322,12 @@ module adcrcv(
 				csr <= wb_dat_i[15:0];
 			end
 		end
-		// autoclear iodelay inc and reset commands and serdes reset after 1 clk
-		if (csr[9]) csr[9] <= 0;
-		if (csr[10]) csr[10] <= 0;
-		if (csr[11]) csr[11] <= 0;
+		// autoclear iodelay inc and reset commands and serdes reset after 2 clk
+		if (autoclr[0]) csr[9] <= 0;
+		if (autoclr[1]) csr[10] <= 0;
+		if (autoclr[2]) csr[11] <= 0;
+		if (autoclr[3]) csr[14] <= 0;
+		autoclr <= {csr[14], csr[11:9]};
 	end
-
-
-
-	always @ (posedge CLK) begin
-
-	end 
-
 
 endmodule
