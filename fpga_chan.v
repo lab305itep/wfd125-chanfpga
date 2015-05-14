@@ -123,8 +123,6 @@ module fpga_chan(
 	wire 	[63:0]  	gtp_data_o; 		// data ftom GTP
 	wire 	[3:0]   	gtp_comma_o;		// k-char signature from GTP
 	wire [31:0]  	CSR;					// command and status register
-	wire 				seq_ready;			// checking sequenser ready
-	wire 				seq_reset;			// checking counters reset
 	wire 				seq_enable;			// check enable (check interval)
 	
 	wire [255:0]  par_array;
@@ -136,8 +134,6 @@ module fpga_chan(
 	reg  [15:0]  trigger;
 	wire sum_trig;
 
-	wire [15:0] fifo_full;
-	reg [15:0] fifo_full_cnt;
 
 //		WB-bus
 	wire wb_clk;
@@ -200,7 +196,7 @@ module fpga_chan(
 		.wb_stb    (wb_m2s_reg_csr_stb),
 		.wb_cyc    (wb_m2s_reg_csr_cyc), 
 		.wb_ack    (wb_s2m_reg_csr_ack), 
-		.reg_i	  ({CSR[31:8], seq_ready, CSR[6:0]}),
+		.reg_i	  ({CSR[31:8], ~seq_enable, CSR[6:0]}),
 		.reg_o	  (CSR)
 	);
 	assign wb_s2m_reg_csr_err = 0;
@@ -336,8 +332,7 @@ module fpga_chan(
 				.wb_dat_o	(wb_s2m_adc_rcv_dat),
 				// checking signals
 				.chk_type	(CSR[3:0]),					// test pattern number to check (from main CSR)
-				.chk_rst		(seq_reset),				// reset error counters	(from checkseq)
-				.chk_enb		(seq_enable)				// enable checking (checking interval, from checkseq)
+				.chk_run		(seq_enable)				// enable checking (checking interval, from checkseq)
 			);
 		end
 	endgenerate
@@ -366,7 +361,7 @@ module fpga_chan(
 			.smask(par_array[PAR_SMASK*16+i]), 
 			.tmask(par_array[PAR_TMASK*16+i]), 
 			.stmask(par_array[PAR_STMASK*16+i]),
-			.fifo_full(fifo_full[i]),
+			.fifo_full(),
 			.raw(CSR[15])
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
@@ -379,9 +374,7 @@ module fpga_chan(
 			trigger <= 0;
 		end else begin
 			trigger <= gtp_data_o[15:0];
-			if ((| fifo_full) && !(& fifo_full_cnt)) fifo_full_cnt <= fifo_full_cnt + 1;
 		end
-		if (seq_reset) fifo_full_cnt <= 0;
 	end
 
 //		Pattern check sequencer
@@ -389,9 +382,7 @@ module fpga_chan(
 		.clk(CLK125),		// system clock
 		.start(CSR[7]),	// start
 		.cntmax(CSR[6:4]),
-		.reset(seq_reset),
-		.enable(seq_enable),
-		.ready(seq_ready)
+		.enable(seq_enable)
 	);
 
 //		arbitter

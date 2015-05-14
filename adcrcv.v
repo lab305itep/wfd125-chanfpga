@@ -22,14 +22,14 @@
 //			8-0	(RW)	bit mask, frame and 8 bit lines, for IODELAY increment commands
 //			9		(WC)	IODELAY increment, autoclear
 //			10		(WC)	IODELAY reset, autoclear, resets all bit line delays to minimal possible value
-//			11		(WC)	SERDES asyncronous reset, autoclear
-//			12		(RW)	allow bitslip on individual bit lines
-//			13		(RW)	allow coherent bitslip on all bit lines according to frame
-//			14		(RW)	IODELAY calibrate, autoclear
+//			11		(RW)	IODELAY calibrate, autoclear
+//			12		(WC)	SERDES asyncronous reset, autoclear
+//			13		(RW)	allow bitslip on individual bit lines
+//			14		(RW)	allow coherent bitslip on all bit lines according to frame
 //			15		(RW)	unused
 //		1		(R)	ADC frequency counter
 //		2-5	(R)	ADC 0-3 test data error counters
-//		6		(R)	bitslip sticky indicators, any write to this reg clears all indicators
+//		6		(R)	bitslip sticky indicators, cleared only with CheckSeq reset
 //		7		(R)	frame instability counter
 //		8-15	(R)	bit lines 0-7 instability counters
 //
@@ -53,8 +53,7 @@ module adcrcv(
 		output [31:0] 		wb_dat_o,
 		// checking signals
 		input [3:0]			chk_type,	// test pattern number to check (from main CSR)
-		input 				chk_rst,		// reset error counters	(from checkseq)
-		input 				chk_enb		// enable checking (checking interval, from checkseq)
+		input 				chk_run		// checking interval, from checkseq
 	);
 	 
 	wire 	[1:0]		CLKIN_s;		// clocks from input buffer (375 MHz)
@@ -64,20 +63,21 @@ module adcrcv(
 	wire       		IOCE;			// SERDESSTROBE
 	wire       		DIVCLK;		// data clocks from BUFIO2_2CLK (125 MHz)
 	wire 	[8:0]		BS;			// individual data bitslips and frame bitslip = master coherent bitslip
-	reg 	[8:0]		dinc;			// CLK timed iodelay increment signal
-	reg 				drst;			// CLK timed iodelay reset signal
 	reg	[47:0]	DOUT_d;		// ADC data delayed 1 CLK
 	
 	// registers
 	reg 	[15:0]	csr;					// commands and status reg
-	reg 	[31:0]	frq_cnt;				// ADC frequency counter
+	reg 	[20:0]	frq_cnt;				// ADC frequency counter
 	wire 	[15:0]	err_cnt	[3:0];	// test data error counters
 	reg	[8:0]		bs_cap;				// bitslip capture
 	reg 	[7:0]		ins_cnt	[8:0];	// instability counters
 	reg	[15:0]	rdat;					// WB read register
-	reg   [8:0]    delay_inc;			// increment delay
+	reg   [8:0]    delay_inc;			// CLK timed increment delay
 	reg   [1:0]    delay_pulse;		// make pulse on csr[9] leading edge
 	reg   [3:0]    autoclr;				// for autoclear in 2 wb_clk
+	reg   [1:0]    chk_pulse;			// make check sequence CLK timed
+	reg				chk_rst;				// check counters reset, CLK timed
+	reg				chk_enb;				// check counters enable, CLK timed
 	 
 
 	// Recieving and processing clocks
@@ -166,16 +166,16 @@ wire CLKIN_b;
 		.DOUT		(FR_r),					// deserialized data to FPGA
 		.IOCE		(IOCE),					// SERDESSTROBE
 		.BS		(BS[8]),					// bitslip pulse - master bs
-		.SRST		(csr[11]),				// asyncronous reset to ISERDES
+		.SRST		(csr[12]),				// asyncronous reset to ISERDES
 		.DINC		(delay_inc[8]),   	// increment command to IODELAY
-		.DCAL		(csr[14]),				// CAL command to IODELAY
+		.DCAL		(csr[11]),				// CAL command to IODELAY
 		.DRST		(csr[10])				// reset command to IODELAY
    );
 
 	bitslip FR_bs(
     .CLK			(CLK),		// ADC clock divided
     .DATA		(FR_r),		// ADC one line 6-bit data, CLK timed
-	 .BSENB		(csr[13]),	// allow master bitslip
+	 .BSENB		(csr[14]),	// allow master bitslip
     .BS			(BS[8])		// master coherent bitslip
     );
 
@@ -191,25 +191,44 @@ wire CLKIN_b;
 				.DOUT		(DOUT[6*i+5:6*i]),	// deserialized data to FPGA
 				.IOCE		(IOCE),					// SERDESSTROBE
 				.BS		(BS[8] | BS[i]),		// bitslip pulse - this or master bs
-				.SRST		(csr[11]),				// asyncronous reset to ISERDES
+				.SRST		(csr[12]),				// asyncronous reset to ISERDES
 				.DINC		(delay_inc[i]),	   // increment command to IODELAY
-				.DCAL		(csr[14]),				// CAL command to IODELAY
+				.DCAL		(csr[11]),				// CAL command to IODELAY
 				.DRST		(csr[10])				// reset command to IODELAY
 			);
 			
 			bitslip DATA_bs(
 				.CLK		(CLK),					// ADC clock divided
 				.DATA		(DOUT[6*i+5:6*i]),	// ADC one line 6-bit data, CLK timed
-				.BSENB	(csr[12]),				// allow master bitslip
+				.BSENB	(csr[13]),				// allow individual line bitslip
 				.BS		(BS[i])					// master coherent bitslip
 			);
       end
    endgenerate
+	
+	// resample some sigs to CLK
+	always @ (posedge CLK) begin
+	//	make IODEALY inc pulses
+		delay_pulse <= {delay_pulse[0], csr[9]};
+		delay_inc <= 0;
+		if (delay_pulse == 2'b01) begin
+			delay_inc <= csr[8:0];
+		end
+		chk_pulse <= {chk_pulse[0], chk_run};
+		chk_rst <= 0;
+		if (chk_pulse == 2'b01) begin
+			chk_rst <= 1;
+		end else if (chk_pulse == 2'b11) begin
+			chk_enb <= 1;
+		end else if (chk_pulse == 2'b10) begin
+			chk_enb <= 0;
+		end
+	end
 
 	// count ADC frequncy
-	always @ (posedge CLK or posedge chk_rst) begin
+	always @ (posedge CLK) begin
 		if	(chk_rst) begin
-			// asyncronous reset
+			// reset
 			frq_cnt <= 0;
 		end else if (chk_enb) begin
 			// count freq transitions when check enabled
@@ -236,14 +255,13 @@ wire CLKIN_b;
    generate
       for (i=0; i < 9; i=i+1) 
       begin: BS_CAP 
-			always @ (posedge wb_clk or posedge BS[i]) begin
-				if	(BS[i]) begin
-					// asyncronous set = capture
-					bs_cap[i] <= 1;
-				end else if (wb_cyc & wb_stb & wb_we & (wb_adr == 6)) begin
-				// syncronous clear on WB write
+			always @ (posedge CLK) begin
+				if (chk_rst) begin
 					bs_cap[i] <= 0;
-				end
+				end else	if	(BS[i]) begin
+					// syncronous set = capture
+					bs_cap[i] <= 1;
+				end  
 			end 
       end
    endgenerate
@@ -251,10 +269,8 @@ wire CLKIN_b;
 	// frame instability
 	always @ (posedge CLK) begin
 		FR_d <= FR_r;
-	end
-	always @ (posedge CLK or posedge chk_rst) begin
 		if	(chk_rst) begin
-			// asyncronous reset
+			// syncronous reset
 			ins_cnt[0] <= 0;
 		end else if (chk_enb & (FR_r != FR_d) & ~(&ins_cnt[0])) begin
 			// increment when previous data is not equal to current untill full
@@ -269,7 +285,7 @@ wire CLKIN_b;
    generate
       for (i=0; i < 8; i=i+1) 
       begin: INS_CNT 
-			always @ (posedge CLK or posedge chk_rst) begin
+			always @ (posedge CLK) begin
 				if	(chk_rst) begin
 				// asyncronous reset
 					ins_cnt[i+1] <= 0;
@@ -281,14 +297,6 @@ wire CLKIN_b;
 		end
 	endgenerate
 	
-	//	make IODEALY inc pulses
-	always @ (posedge CLK) begin
-		delay_pulse <= {delay_pulse[0], csr[9]};
-		delay_inc <= 0;
-		if (delay_pulse == 2'b01) begin
-			delay_inc <= csr[8:0];
-		end
-	end
 	
 	// Wishbone interface
 	assign wb_dat_o = (wb_ack) ? {16'h0000, rdat} : {32'hZZZZZZZZ};
@@ -299,12 +307,12 @@ wire CLKIN_b;
 			wb_ack <= 1;
 			case (wb_adr)
 				0:	 rdat <= csr;										// csr
-				1:  rdat <= frq_cnt[31:16];							// high bits of frequency counter
+				1:  rdat <= frq_cnt[20:5];							// high bits of frequency counter
 				2:  rdat <= err_cnt[0];
 				3:  rdat <= err_cnt[1];
 				4:  rdat <= err_cnt[2];
 				5:  rdat <= err_cnt[3];
-				6:  rdat <= {7'h00, bs_cap};							// bitslip capture
+				6:  rdat <= {7'h00, bs_cap};						// bitslip capture
 				7:  rdat <= {8'h00, ins_cnt[0]};
 				8:  rdat <= {8'h00, ins_cnt[1]};
 				9:  rdat <= {8'h00, ins_cnt[2]};
@@ -326,8 +334,8 @@ wire CLKIN_b;
 		if (autoclr[0]) csr[9] <= 0;
 		if (autoclr[1]) csr[10] <= 0;
 		if (autoclr[2]) csr[11] <= 0;
-		if (autoclr[3]) csr[14] <= 0;
-		autoclr <= {csr[14], csr[11:9]};
+		if (autoclr[3]) csr[12] <= 0;
+		autoclr <= csr[12:9];
 	end
 
 endmodule
