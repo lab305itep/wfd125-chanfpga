@@ -16,49 +16,78 @@
 // Revision: 
 // Revision 0.01 - File Created
 // Additional Comments: 
-//	- module calculates and subtracks pedestall
-// - do self trigger
-// - do zero suppression
+//	- module calculates and subtracks pedestal
+// - does self trigger
+// - does zero suppression
 // - produce master trigger block
-//		Self trigger block:
-//	1NNN NNNL LLLL LLLL - N - channel number, L - data length in 16-bit words not including CW 
-// 0ttt nnnn nnnn nnnn - ttt - trigger type (1 - master, 0 - self)
-// 		n - token or selftrigger seq number
-//	0000 XXXX XXXX XXXX - L-1 words of ADC 12-bit data
+//		Blocks sent to arbitter 
+//		0	1CCC CCCL LLLL LLLL - CCCCCC - 6-bit channel number which produced the block ; 
+//										 LLLLLLLLL - 9-bit block length in 16-bit words not including CW, L = WinLen + 2
+// 	1	0ttt penn nnnn nnnn - ttt - trigger block type (0 - self, 1 - master, 3 - raw ADC data on master trigger) ;
+//										 n - master : 10-bit trigger token from gtp, e - token error (as recieved by main FPGA)
+//											- self : 10-bit sequential selftrigger number, as counted after prescale, e = 0;
+//										 p - sent block sequential number LSB, independently on master/self
+//		2	0000 0000 0000 0DDD - master : high resolution relative trigger time 0-5 or timing error if 7
+//			or
+//		2	0000 DDDD DDDD DDDD - self : baseline absolute value in ADC units
+//		3	0XXX XXXX XXXX XXXX - L-2 words of ADC signed data after pedestal subtraction or ADC raw data
 //////////////////////////////////////////////////////////////////////////////////
-module prc1chan(
-		input clk,					// 125MHz clock
-		input ADCCLK,				// ADC data clock
-		input [11:0] data,		// ADC raw data
-		output reg [11:0] d2sum,	// ADC - pedestal
-		output reg [11:0] ped = 0,	// pedestal
-		input [15:0] cped,		// common pedestal (12 bits)
-		input [15:0] zthr,		// zero suppression threshold (12 bits)
-		input [15:0] sthr,		// self trigger threshold (12 bits)
-		input [15:0] prescale,	// prescale for self trigger (16 bits)
-		input [15:0] winbeg,		// window begin relative to the master trigger (10 bits)
-		input [15:0] swinbeg,		// self trigger window begin (10 bits)
-		input [15:0] winlen,		// window length (8 bits)
-		input [15:0] trigger,	// master trigger information
+module prc1chan # (
+		parameter ABITS = 12,			// width of ADC data
+		parameter CBITS = 10				// number of bits in circular buffer memory
+		)
+		(
+		input 				clk,			// 125MHz GTP and output data clock
+		input [5:0] 		num,			// ADC number
+		// ADC data from its reciever
+		input 				ADCCLK,		// ADC data clock
+		input [ABITS-1:0]	ADCDAT,		// ADC raw data
+		// data processing programmable parameters
+		input [ABITS-1:0]	zthr,			// zero suppression threshold (12 bits)
+		input [ABITS-1:0]	sthr,			// self trigger threshold (12 bits)
+		input [15:0] 		prescale,	// prescale for self trigger (16 bits)
+		input [CBITS-1:0]	winbeg,		// window begin relative to the master trigger (10 bits)
+		input [CBITS-1:0]	swinbeg,		// self trigger window begin relative to sthr crossing (10 bits)
+		input [8:0] 		winlen,		// window length (9 bits, but not greater than 509)
+		input 				smask,		// 1 bit mask for sum
+		input 				tmask,		// 1 bit mask for trigger
+		input 				stmask,		// 1 bit mask for self trigger
+		input					invert,		// change waveform sign
+		input 				raw,			// test mode: no selftrigger, zero for summing, raw data on master trigger
+		// calculated baseline value for readout
+		output reg [ABITS-1:0] ped = 0,	// pedestal (baseline)
+		// trigger token
+		input [15:0] 		trigger,		// master trigger token as recieved by main FPGA and transmitted 
+												// through GTP: 1000 0enn nnnn nnnn
+		// trigger pulse and time
+		input					adc_trig,	// master trigger as recieved by this ADC
+		input	[2:0]			trig_time,	// high resolution master trigger time
+		// arbitter interface for data output
 		output reg [15:0] dout = 0,	// data to arbitter
-		input [5:0] num,			// ADC number
-		output req,					// request to arbitter
-		input ack,					// acknowledge from arbitter
-		input smask,				// 1 bit mask for sum
-		input tmask,				// 1 bit mask for trigger
-		input stmask,				// 1 bit mask for self trigger
-		output fifo_full,			// 1 bit fifo full signature
-		input raw					// test mode: no selftrigger, zero for summing, raw data on master trigger
+		output 				req,			// request to arbitter
+		input 				ack,			// acknowledge from arbitter
+		output 				fifo_full,	// 1 bit fifo full signature
+		// to sumtrig
+		output reg [15:0] d2sum			// (ADC - pedestal) signed to trigger summation
    );
 
-	localparam PBITS = 16;
-	reg [PBITS+11:0] pedsum = 0;
-	reg [PBITS-1:0] pedcnt = 0;
-	reg [11:0] pdata = 0;
-	reg [9:0] waddr = 0;
-	reg [9:0] raddr = 0;
+	// pedestal calculations
+		localparam 					PBITS = 16;			// number of bits in pedestal window counter
+		reg [PBITS+ABITS-1:0] 	pedsum = 0;			// sum for average
+		reg [PBITS-1:0] 			pedcnt = 0;			// ped window counter
+		reg [ABITS-1:0] 			ped_s = 0;			// averaged value, ADCCLK timed
+		reg 							ped_pulse = 0;		// ped ready
+		reg [1:0] 					ped_pulse_d = 0;	// for CLK sync
+
+	//	ADC data after pedestal subtraction and inversion, signed, ADCCLK timed
+		reg signed [15:0]			pdata = 0;
+
+	//	circular buffer for keeping prehistory and resynching ADC data to clk 
+		reg [15:0] 				mem [2**CBITS-1:0];	// buffer itself
+		reg [CBITS-1:0]		waddr = 0;				// write address
+		reg [CBITS-1:0]		raddr = 0;				// read address, clk timed
+	
 	reg [9:0] wwaddr = 0;
-	reg [11:0] mem [1023:0];
 	reg [11:0] rdata;
 	reg [15:0] trg_data;
 	reg [10:0] wfaddr = 0;
@@ -68,69 +97,52 @@ module prc1chan(
 	reg [10:0] fffaddr = 0;		// the word after the full block clk negedge
 	reg [15:0] fifo [2047:0];
 	reg [7:0]  copied = 0;
-	reg [11:0] ped_s = 0;
-	reg ped_pulse = 0;
-	reg [1:0] ped_pulse_d = 0;
 	reg [1:0] mtrig = 0;
 	reg wcopy = 0;
 	reg wcopy_d = 0;
 	reg [15:0] trigger_s = 0;
-	reg [11:0] d2sumfifo [3:0];
-	reg [1:0] d2sum_waddr = 0;
-	reg [1:0] d2sum_raddr = 2;
-	reg d2sum_arst = 0;
-	reg d2sum_arst_d = 0;
-	wire [13:0] accum;
-	
-	assign accum = {2'b00, data} - {2'b00, ped_s} + cped[13:0];
-	
-//		to total sum
-	always @ (posedge ADCCLK) begin
-		if (raw) begin
-			pdata <= data;
-		end else if (accum[13]) begin
-			pdata <= 0;		//	negative
-		end else if (accum[12]) begin
-			pdata <= 12'hFFF;	// maximum
-		end else begin
-			pdata <= accum[11:0];
-		end
-		d2sumfifo[d2sum_waddr] <= ((!smask) && (data > ped_s) && (!raw)) ? data - ped_s : 0;
-		d2sum_waddr <= d2sum_waddr + 1;
-		d2sum_arst <= (d2sum_waddr == 0) ? 1 : 0;
-	end
-	
-	always @ (posedge clk) begin
-		d2sum_arst_d <= d2sum_arst;
-		d2sum <= d2sumfifo[d2sum_raddr];
-		d2sum_raddr <= (d2sum_arst_d) ? 0 : d2sum_raddr + 1;
-	end
 
+	// 4 word circular buffer to resync ADC data (ped subtracted) to clk for trigger sum calculations
+		reg [15:0] 		d2sumfifo [3:0];		//	buffer itself
+		reg [1:0] 		d2sum_waddr = 0;		// write address
+		reg [1:0] 		d2sum_raddr = 2;		// read address
+		reg 				d2sum_arst = 0;		// sync as generated at ADCCLK
+		reg 				d2sum_arst_d = 0;		// sync as felt at clk
+	
 //		pedestal calculation
 	always @ (posedge ADCCLK) begin
 		if (&pedcnt) begin
 			pedcnt <= 0;
 			ped_s <= pedsum[PBITS+11:PBITS];
-			pedsum <= data;
+			pedsum <= ADCDATA;
 		end else begin
 			pedcnt <= pedcnt + 1;
-			pedsum <= pedsum + data;
+			pedsum <= pedsum + ADCDATA;
 		end
 		ped_pulse = (pedcnt < 3) ? 1 : 0;
 	end
-	
 //		do safe pedestal output
 	always @ (posedge clk) begin
 		ped_pulse_d <= {ped_pulse_d[0], ped_pulse};
 		if (ped_pulse_d == 2'b01) ped <= ped_s;
 	end
 
-//		circle memory buffer
+// 	pedestal subtraction and inversion
+	always @ (posedge ADCCLK) begin
+		if (invert) begin
+			pdata <= ped_s - ADCDATA;
+		end else begin
+			pdata <= ADCDATA - ped_s;
+		end
+	end
+
+//		circular memory buffer
+	// write at ADCCLK
 	always @ (posedge ADCCLK) begin
 		mem[waddr] <= pdata;
 		waddr <= waddr + 1;
 	end
-
+	// read at clk
 	always @ (posedge clk) begin
 		rdata <= mem[raddr];
 	end
@@ -140,6 +152,16 @@ module prc1chan(
 	reg strig = 0;
 	reg [1:0] strig_cnt = 0;
 	reg strig_d = 0;
+	
+	always @ (posedge ADCCLK) begin
+		if (pdata > $signed(sthr)) begin
+			if (~strig) begin
+				strig <= 1;
+				begaddr <= waddr - swinbeg;
+			end
+		end else begin
+		end
+	end
 	
 	always @ (posedge ADCCLK) begin
 		strig <= (| strig_cnt) & (!raw);
@@ -256,6 +278,21 @@ module prc1chan(
 		dout <= fifo[rfaddr];
 		fffaddr <= ffaddr;
 		if (ack) rfaddr <= rfaddr + 1;
+	end
+
+//		to total sum -- resync adc data to clk
+	// fill buffer at ADFCCLK
+	always @ (posedge ADCCLK) begin
+		// send zero if masked or raw data requested
+		d2sumfifo[d2sum_waddr] <= ((~smask) & (~raw)) ? pdata : 0;
+		d2sum_waddr <= d2sum_waddr + 1;
+		d2sum_arst <= (d2sum_waddr == 0) ? 1 : 0;
+	end
+	// read buffer at clk
+	always @ (posedge clk) begin
+		d2sum_arst_d <= d2sum_arst;
+		d2sum <= d2sumfifo[d2sum_raddr];
+		d2sum_raddr <= (d2sum_arst_d) ? 0 : d2sum_raddr + 1;
 	end
 
 endmodule

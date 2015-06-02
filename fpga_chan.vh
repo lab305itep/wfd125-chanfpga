@@ -10,4 +10,4 @@ localparam PAR_STPRC = 7;	// selftrigger prescale
 localparam PAR_WINBEG = 8;	// master trigger window begin
 localparam PAR_WINLEN = 9; // window length
 localparam PAR_SWINBEG = 10; // self trigger window begin
-localparam PAR_CPED = 11;	// common pedestal
+localparam PAR_INVMASK = 11; // mask for waveform inversion

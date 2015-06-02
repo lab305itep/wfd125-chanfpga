@@ -42,6 +42,10 @@ module adcrcv(
 		// outputs to further processing
 		output        		CLK,		// data clock derived from ADC clock
 		output [47:0] 		DOUT,		// output data (CLK clocked)
+		// ADC trigger
+		input					sertrig,	// as from ICX
+		output reg			adtrig,	//	single CLK trigger pulse from leading edge of sertrig
+		output reg [2:0]	trtime,	// encoded trigger arrival time, valid with adtrig
 		//	WB interface
 		input 				wb_clk,
 		input 				wb_cyc,
@@ -64,6 +68,11 @@ module adcrcv(
 	wire       		DIVCLK;		// data clocks from BUFIO2_2CLK (125 MHz)
 	wire 	[8:0]		BS;			// individual data bitslips and frame bitslip = master coherent bitslip
 	reg	[47:0]	DOUT_d;		// ADC data delayed 1 CLK
+	
+	// trigger
+	wire	[1:0]		trig_pins;	// obuf to ibuf trigger connection
+	wire 	[5:0]		TR_r;			// trigger deser data
+	reg	[5:0]		TR_d;			// trigger data delayed 1 CLK
 	
 	// registers
 	reg 	[15:0]	csr;					// commands and status reg
@@ -205,6 +214,52 @@ wire CLKIN_b;
 			);
       end
    endgenerate
+	
+	// Trigger
+	// translate to ibuf
+   OBUFDS #(
+      .IOSTANDARD("BLVDS_25") 		// Specify the output I/O standard
+   ) OBUFDS_trig (
+      .O		(trig_pins[0]),     		// Diff_p output (connect directly to top-level port)
+      .OB	(trig_pins[1]),   		// Diff_n output (connect directly to top-level port)
+      .I		(sertrig)      			// Buffer input 
+   );
+
+	//	recieve trigger
+	adc1rcvd # (
+		.IOSTD	("BLVDS_25")			// must match the OBUFDS standard
+	) TR_rcv (
+		.CLK		(CLK),					// clock for SERDES bitslip and IODELAY inc/rst timing
+		.CLKIN	(CLKIN_2),				// clocks from ADC
+		.DIN		(trig_pins),			// trigger line data
+		.DOUT		(TR_r),					// deserialized data to FPGA
+		.IOCE		(IOCE),					// SERDESSTROBE
+		.BS		(BS[8]),					// bitslip pulse - master bs !!! must be bitslipped the same way as frame
+		.SRST		(csr[12]),				// asyncronous reset to ISERDES
+		.DINC		(delay_inc[8]),   	// increment command to IODELAY !!! must be delayed the same way as frame
+		.DCAL		(csr[11]),				// CAL command to IODELAY
+		.DRST		(csr[10])				// reset command to IODELAY
+   );
+
+	// generate trigger pulse and encode trigger time
+	always @ (posedge CLK) begin
+		adtrig <= 0;		// default
+		if (~(|TR_d) & (|TR_r)) begin
+			// previous clock trig at low level, current contains high
+			adtrig <= 1;
+			// data comes MSB first, i.e. latest trigger is the highest 1
+			case (TR_r)
+				6'b100000 : trtime <= 5;	// latest
+				6'b110000 : trtime <= 4;
+				6'b111000 : trtime <= 3;
+				6'b111100 : trtime <= 2;
+				6'b111110 : trtime <= 1;
+				6'b111111 : trtime <= 0;	// earliest
+				default   : trtime <= 7;	// error
+			endcase
+		end
+		TR_d <= TR_r;
+	end
 	
 	// resample some sigs to CLK
 	always @ (posedge CLK) begin

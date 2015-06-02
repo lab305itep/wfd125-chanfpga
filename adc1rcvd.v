@@ -13,7 +13,10 @@
 //		to recieve ONE adc bit line (6 bits DDR) with variable delay
 //
 //////////////////////////////////////////////////////////////////////////////////
-module adc1rcvd(
+module adc1rcvd # (
+		parameter IOSTD = "LVDS_25"
+	)
+	(
 		input 			CLK,		// General FPGA clock for SERDES and its bitslip timing
 		input  [1:0] 	CLKIN,	// clocks from ADC
 		input  [1:0] 	DIN,		// one line data from ADC
@@ -31,12 +34,12 @@ module adc1rcvd(
 	wire M2S;
 
    IBUFDS #(
-      .DIFF_TERM("TRUE"),   // Differential Termination
-      .IOSTANDARD("LVDS_25") // Specify the input I/O standard
+      .DIFF_TERM("TRUE"),  // Differential Termination
+      .IOSTANDARD(IOSTD) 	// Specify the input I/O standard
    ) IBUFDS_inst (
-      .O(DIN_s),  // Buffer output
-      .I(DIN[0]),  // Diff_p buffer input (connect directly to top-level port)
-      .IB(DIN[1]) // Diff_n buffer input (connect directly to top-level port)
+      .O(DIN_s),  			// Buffer output
+      .I(DIN[0]),  			// Diff_p buffer input (connect directly to top-level port)
+      .IB(DIN[1]) 			// Diff_n buffer input (connect directly to top-level port)
    );
 
    IODELAY2 #(

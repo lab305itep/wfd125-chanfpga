@@ -125,14 +125,17 @@ module fpga_chan(
 	wire [31:0]  	CSR;					// command and status register
 	wire 				seq_enable;			// check enable (check interval)
 	
-	wire [255:0]  par_array;
-	wire [255:0]  d2arb;
-	wire [191:0]  d2sum;
-	wire [255:0]  adc_ped;
-	wire [15:0]  req2arb;
-	wire [15:0]  ack4arb;
-	reg  [15:0]  trigger;
-	wire sum_trig;
+	wire [255:0]  	par_array;
+	wire [255:0]  	d2arb;
+	wire [255:0]  	d2sum;
+	wire [255:0]  	adc_ped;
+	wire [15:0]  	req2arb;
+	wire [15:0]  	ack4arb;
+	reg  [15:0]  	trigger;
+	wire 				sum_trig;
+	wire 				sertrig;				// serial trigger as accepted from ICX[1:0]
+	wire [3:0]		adc_trig;			// master trigger pulse on certain ADC CLK
+	wire [11:0]		trig_time;			// 3 bit high resolution trigger time valid with proper adc_trig
 
 
 //		WB-bus
@@ -146,18 +149,33 @@ module fpga_chan(
 
 //		GTP communication module
 	
-	gtprcv4 # (.WB_DIVIDE(2), .WB_MULTIPLY(2)) UGTP (		// 125 MHz for wishbone
+	gtprcv4 # (.WB_DIVIDE(2), .WB_MULTIPLY(2)) UGTP (		// 125 MHz for clkwb
 		.rxpin		({RX3, RX2, RX1, RX0}),	// input data pins
 		.txpin		({TX3, TX2, TX1, TX0}),	// output data pins
 		.clkpin		(RCLK),						// input clock pins - tile0 package pins A10/B10
 		.clkout		(CLK125),					// output 125 MHz clock
-		.clkwb   	(wb_clk),					// output clock for wishbone
+		.clkwb   	(),							// output clock ( previously for wishbone )
+		.gck_o		(),							// not used here
 		.data_o		(gtp_data_o),				// data received
 		.charisk_o	(gtp_comma_o),				// 
 		.data_i     (gtp_data_i),				//	data send
 		.charisk_i  (gtp_comma_i),
 		.locked  	()
     );
+
+	// wb_clk is now equivalent to CLK125 !!!
+	assign wb_clk = CLK125;
+
+   // accept serial reigger from ICX[1:0]
+	IBUFDS #(
+      .DIFF_TERM("FALSE"),   	// Differential Termination
+      .IOSTANDARD("BLVDS_25") // Specify the input I/O standard
+   ) IBUFDS_trig (
+      .O		(sertrig),  		// Buffer output
+      .I		(ICX[0]),  			// Diff_p buffer input (connect directly to top-level port)
+      .IB	(ICX[1]) 			// Diff_n buffer input (connect directly to top-level port)
+   );
+
 
 //		SPI from the master Xilinx - master on the WB-bus
 	spi_wbmaster spi_master(
@@ -321,6 +339,10 @@ module fpga_chan(
 				// outputs to further processing
 				.CLK			(ADCCLK[i]),				// data clock derived from ADC clock
 				.DOUT			(ADCDAT[48*i+47:48*i]),	// output data (CLK clocked)
+				// this ADC trigger
+				.sertrig		(sertrig),					// as from ICX
+				.adtrig		(adc_trig[i]),				//	single this ADC CLK trigger pulse from leading edge of sertrig
+				.trtime		(trig_time[3*i+2:3*i]),	// encoded trigger arrival time, valid with adtrig
 				//	WB interface
 				.wb_clk		(wb_clk),
 				.wb_cyc		(wb_m2s_adc_rcv_cyc),
@@ -336,33 +358,44 @@ module fpga_chan(
 			);
 		end
 	endgenerate
+	
+	assign ICX[10:7] = adc_trig;
 
 //		channel processing
 	generate
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
-			.clk(CLK125),
-			.ADCCLK(ADCCLK[i/4]),
-			.data(ADCDAT[12*i+11:12*i]), 
-			.d2sum(d2sum[12*i+11:12*i]), 
-			.ped(adc_ped[16*i+11:16*i]), 
-			.zthr(par_array[PAR_ZTHR*16+15:PAR_ZTHR*16]), 
-			.sthr(par_array[PAR_STTHR*16+15:PAR_STTHR*16]), 
-			.cped(par_array[PAR_CPED*16+15:PAR_CPED*16]),
-			.prescale(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
-			.winbeg(par_array[PAR_WINBEG*16+15:PAR_WINBEG*16]), 
-			.swinbeg(par_array[PAR_SWINBEG*16+15:PAR_SWINBEG*16]), 
-			.winlen(par_array[PAR_WINLEN*16+15:PAR_WINLEN*16]), 
-			.trigger(trigger), 
-			.dout(d2arb[16*i+15:16*i]), 
-			.num((CHN << 4) + i), 
-			.req(req2arb[i]), 
-			.ack(ack4arb[i]), 
-			.smask(par_array[PAR_SMASK*16+i]), 
-			.tmask(par_array[PAR_TMASK*16+i]), 
-			.stmask(par_array[PAR_STMASK*16+i]),
-			.fifo_full(),
-			.raw(CSR[15])
+			.clk			(CLK125),
+			.num			((CHN << 4) + i), 
+			// ADC data from its reciever
+			.ADCCLK		(ADCCLK[i/4]),
+			.ADCDAT		(ADCDAT[12*i+11:12*i]), 
+			// data processing programmable parameters
+			.zthr			(par_array[PAR_ZTHR*16+11:PAR_ZTHR*16]), 
+			.sthr			(par_array[PAR_STTHR*16+11:PAR_STTHR*16]), 
+			.prescale	(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
+			.winbeg		(par_array[PAR_WINBEG*16+9:PAR_WINBEG*16]), 
+			.swinbeg		(par_array[PAR_SWINBEG*16+9:PAR_SWINBEG*16]), 
+			.winlen		(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 
+			.smask		(par_array[PAR_SMASK*16+i]), 
+			.tmask		(par_array[PAR_TMASK*16+i]), 
+			.stmask		(par_array[PAR_STMASK*16+i]),
+			.invert		(par_array[PAR_INVMASK*16+i]),
+			.raw			(CSR[15]),
+			// calculated baseline value for readout
+			.ped			(adc_ped[16*i+11:16*i]), 
+			// trigger token
+			.trigger		(trigger), 
+			// trigger pulse and time
+			.adc_trig	(adc_trig[i/4]),
+			.trig_time	(trig_time[3*(i/4)+2:3*(i/4)]),
+			// arbitter interface for data output
+			.dout			(d2arb[16*i+15:16*i]), 
+			.req			(req2arb[i]), 
+			.ack			(ack4arb[i]), 
+			.fifo_full	(),
+			// to sumtrig
+			.d2sum(d2sum[16*i+15:16*i]), 
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		end

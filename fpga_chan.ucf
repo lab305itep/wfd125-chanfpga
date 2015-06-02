@@ -23,6 +23,9 @@ NET "ACA<1>"  LOC = N4 | DIFF_TERM = "TRUE" ;
 NET "AFA<0>"  LOC = L3 | DIFF_TERM = "TRUE" ;
 NET "AFA<1>"  LOC = L1 | DIFF_TERM = "TRUE" ;
 
+NET "URCV[0].ADCRCV/trig_pins<0>" LOC = M7;
+NET "URCV[0].ADCRCV/trig_pins<1>" LOC = M8;
+
 # ADC B
 NET "ADB<0>"  LOC = AA4  | DIFF_TERM = "TRUE" ;
 NET "ADB<1>"  LOC = AB4  | DIFF_TERM = "TRUE" ;
@@ -44,6 +47,9 @@ NET "ACB<0>"  LOC = AA12 | DIFF_TERM = "TRUE" ;
 NET "ACB<1>"  LOC = AB12 | DIFF_TERM = "TRUE" ;
 NET "AFB<0>"  LOC = Y11  | DIFF_TERM = "TRUE" ;
 NET "AFB<1>"  LOC = AB11 | DIFF_TERM = "TRUE" ;
+
+NET "URCV[1].ADCRCV/trig_pins<0>" LOC = R9;
+NET "URCV[1].ADCRCV/trig_pins<1>" LOC = R8;
 
 # ADC C
 NET "ADC<0>"  LOC = AA14 | DIFF_TERM = "TRUE" ;
@@ -67,6 +73,9 @@ NET "ACC<1>"  LOC = U12  | DIFF_TERM = "TRUE" ;
 NET "AFC<0>"  LOC = Y13  | DIFF_TERM = "TRUE" ;
 NET "AFC<1>"  LOC = AB13 | DIFF_TERM = "TRUE" ;
 
+NET "URCV[2].ADCRCV/trig_pins<0>" LOC = R13;
+NET "URCV[2].ADCRCV/trig_pins<1>" LOC = T14;
+
 # ADC D
 NET "ADD<0>"  LOC = Y21 | DIFF_TERM = "TRUE" ;
 NET "ADD<1>"  LOC = Y22 | DIFF_TERM = "TRUE" ;
@@ -88,6 +97,9 @@ NET "ACD<0>"  LOC = L20 | DIFF_TERM = "TRUE" ;
 NET "ACD<1>"  LOC = L22 | DIFF_TERM = "TRUE" ;
 NET "AFD<0>"  LOC = P20 | DIFF_TERM = "TRUE" ;
 NET "AFD<1>"  LOC = N19 | DIFF_TERM = "TRUE" ;
+ 
+NET "URCV[3].ADCRCV/trig_pins<0>" LOC = R15;
+NET "URCV[3].ADCRCV/trig_pins<1>" LOC = R16;
  
 # Parallel lines to other FPGAs
 # 0-1 "good pair"
