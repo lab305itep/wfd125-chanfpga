@@ -131,7 +131,6 @@ module fpga_chan(
 	wire [255:0]  	adc_ped;
 	wire [15:0]  	req2arb;
 	wire [15:0]  	ack4arb;
-	reg  [15:0]  	trigger;
 	wire 				sum_trig;
 	wire 				sertrig;				// serial trigger as accepted from ICX[1:0]
 	wire [3:0]		adc_trig;			// master trigger pulse on certain ADC CLK
@@ -374,7 +373,7 @@ module fpga_chan(
 			.zthr			(par_array[PAR_ZTHR*16+11:PAR_ZTHR*16]), 
 			.sthr			(par_array[PAR_STTHR*16+11:PAR_STTHR*16]), 
 			.prescale	(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
-			.winbeg		(par_array[PAR_WINBEG*16+9:PAR_WINBEG*16]), 
+			.mwinbeg		(par_array[PAR_MWINBEG*16+9:PAR_WINBEG*16]), 
 			.swinbeg		(par_array[PAR_SWINBEG*16+9:PAR_SWINBEG*16]), 
 			.winlen		(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 
 			.smask		(par_array[PAR_SMASK*16+i]), 
@@ -385,7 +384,8 @@ module fpga_chan(
 			// calculated baseline value for readout
 			.ped			(adc_ped[16*i+11:16*i]), 
 			// trigger token
-			.trigger		(trigger), 
+			.token		(gtp_data_o[15:0]),
+			.tok_vld		(~gtp_comma_o[0]),
 			// trigger pulse and time
 			.adc_trig	(adc_trig[i/4]),
 			.trig_time	(trig_time[3*(i/4)+2:3*(i/4)]),
@@ -400,15 +400,6 @@ module fpga_chan(
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		end
 	endgenerate
-	
-//		get master trigger
-	always @ (posedge CLK125) begin
-		if (gtp_comma_o[0]) begin
-			trigger <= 0;
-		end else begin
-			trigger <= gtp_data_o[15:0];
-		end
-	end
 
 //		Pattern check sequencer
 	checkseq USEQ(

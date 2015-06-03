@@ -34,7 +34,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 module prc1chan # (
 		parameter ABITS = 12,			// width of ADC data
-		parameter CBITS = 10				// number of bits in circular buffer memory
+		parameter CBITS = 10,			// number of bits in circular buffer memory
+		parameter FBITS = 11				// number of bits in output fifo memory
 		)
 		(
 		input 				clk,			// 125MHz GTP and output data clock
@@ -46,7 +47,7 @@ module prc1chan # (
 		input [ABITS-1:0]	zthr,			// zero suppression threshold (12 bits)
 		input [ABITS-1:0]	sthr,			// self trigger threshold (12 bits)
 		input [15:0] 		prescale,	// prescale for self trigger (16 bits)
-		input [CBITS-1:0]	winbeg,		// window begin relative to the master trigger (10 bits)
+		input [CBITS-1:0]	mwinbeg,		// window begin relative to the master trigger (10 bits)
 		input [CBITS-1:0]	swinbeg,		// self trigger window begin relative to sthr crossing (10 bits)
 		input [8:0] 		winlen,		// window length (9 bits, but not greater than 509)
 		input 				smask,		// 1 bit mask for sum
@@ -57,8 +58,9 @@ module prc1chan # (
 		// calculated baseline value for readout
 		output reg [ABITS-1:0] ped = 0,	// pedestal (baseline)
 		// trigger token
-		input [15:0] 		trigger,		// master trigger token as recieved by main FPGA and transmitted 
-												// through GTP: 1000 0enn nnnn nnnn
+		input [15:0] 		token,		// master trigger token as recieved by main FPGA and transmitted 
+												// through GTP: 0000 0enn nnnn nnnn
+		input					tok_vld,		// token valid strobe
 		// trigger pulse and time
 		input					adc_trig,	// master trigger as recieved by this ADC
 		input	[2:0]			trig_time,	// high resolution master trigger time
@@ -83,31 +85,59 @@ module prc1chan # (
 		reg signed [15:0]			pdata = 0;
 
 	//	circular buffer for keeping prehistory and resynching ADC data to clk 
-		reg [15:0] 				mem [2**CBITS-1:0];	// buffer itself
-		reg [CBITS-1:0]		waddr = 0;				// write address
-		reg [CBITS-1:0]		raddr = 0;				// read address, clk timed
+		reg [15:0] 				cbuf [2**CBITS-1:0];	// buffer itself
+		reg [15:0]				cb_data = 0;			// buffer output data
+		reg [CBITS-1:0]		cb_waddr = 0;			// write address, ADCCLK timed
+		reg [CBITS-1:0]		cb_raddr = 0;			// read address, clk timed
+		reg [CBITS-1:0] 		str_addr = 0;			// write address at self trigger start, ADCCLK timed
+		reg [CBITS-1:0] 		mtr_addr = 0;			// write address at master trigger start, ADCCLK timed
+
+	// self trigger & prescale 
+		reg 						discr = 0;				// signal above selftrigger threshold
+		reg 						strig = 0;				// self trigger
+		reg [9:0]				strig_cnt = 0;			// self trigger counter after prescale
+		reg [15:0] 				presc_cnt = 0;			// selftrigger prescale counter
 	
-	reg [9:0] wwaddr = 0;
-	reg [11:0] rdata;
-	reg [15:0] trg_data;
-	reg [10:0] wfaddr = 0;
+	// master trigger
+		reg						mtrig = 0;				// master trigger
+		reg [2:0]				tr_time = 0;			// high resoultion trigger time	
+		reg						tok_got = 0;			// token accepted for this mtrig
+		reg [10:0]				tr_tok = 0;				// memorized token with error
+		
+	// output fifo
+		reg [15:0] 				fifo [2**FBITS-1:0];	// fifo itself
+		reg [FBITS-1:0] 		f_waddr = 0;			// fifo current write address
+		reg [FBITS-1:0] 		f_blkbeg = 0;			// memorized address of block start
+		reg [FBITS-1:0] 		f_blkend = 0;			// address of first empty word after end of block
+
 	reg [10:0] rfaddr = 0;
-	reg [10:0] swfaddr = 0;
 	reg [10:0] ffaddr = 0;		// the word after the full block
 	reg [10:0] fffaddr = 0;		// the word after the full block clk negedge
-	reg [15:0] fifo [2047:0];
-	reg [7:0]  copied = 0;
-	reg [1:0] mtrig = 0;
-	reg wcopy = 0;
-	reg wcopy_d = 0;
-	reg [15:0] trigger_s = 0;
+
+
+	//		state mathine definitions
+		localparam ST_IDLE   = 0;
+		localparam ST_STRIG  = 1;
+		localparam ST_STPED	= 2;
+		localparam ST_STCOPY = 3;
+		localparam ST_MTRIG  = 4;
+		localparam ST_MTIME  = 5;
+		localparam ST_MTCOPY = 6;
+		localparam ST_MTOK	= 7;
+		localparam ST_TRGCLR	= 8;
+
+		reg [4:0] 				trg_state = ST_IDLE;	// state
+		reg [8:0] 				to_copy = 0;			// number of words from CB left for copying
+		wire [8:0] 				blklen;					// block length derived from winlen
+		reg 						zflag = 0;				// flag to apply zero suppression to the current block
+		wire [10:0] 			fifo_free;				// number of words availiable for the next block
 
 	// 4 word circular buffer to resync ADC data (ped subtracted) to clk for trigger sum calculations
-		reg [15:0] 		d2sumfifo [3:0];		//	buffer itself
-		reg [1:0] 		d2sum_waddr = 0;		// write address
-		reg [1:0] 		d2sum_raddr = 2;		// read address
-		reg 				d2sum_arst = 0;		// sync as generated at ADCCLK
-		reg 				d2sum_arst_d = 0;		// sync as felt at clk
+		reg [15:0] 			d2sumfifo [3:0];			//	buffer itself
+		reg [1:0] 			d2sum_waddr = 0;			// write address
+		reg [1:0] 			d2sum_raddr = 2;			// read address
+		reg 					d2sum_arst = 0;			// sync as generated at ADCCLK
+		reg 					d2sum_arst_d = 0;			// sync as felt at clk
 	
 //		pedestal calculation
 	always @ (posedge ADCCLK) begin
@@ -121,7 +151,7 @@ module prc1chan # (
 		end
 		ped_pulse = (pedcnt < 3) ? 1 : 0;
 	end
-//		do safe pedestal output
+	//	do safe pedestal output
 	always @ (posedge clk) begin
 		ped_pulse_d <= {ped_pulse_d[0], ped_pulse};
 		if (ped_pulse_d == 2'b01) ped <= ped_s;
@@ -129,7 +159,9 @@ module prc1chan # (
 
 // 	pedestal subtraction and inversion
 	always @ (posedge ADCCLK) begin
-		if (invert) begin
+		if (raw) begin
+			pdata <= ADCDATA;
+		end else if (invert) begin
 			pdata <= ped_s - ADCDATA;
 		end else begin
 			pdata <= ADCDATA - ped_s;
@@ -139,137 +171,180 @@ module prc1chan # (
 //		circular memory buffer
 	// write at ADCCLK
 	always @ (posedge ADCCLK) begin
-		mem[waddr] <= pdata;
-		waddr <= waddr + 1;
+		cbuf[cb_waddr] <= pdata;
+		cb_waddr <= cb_waddr + 1;
 	end
 	// read at clk
 	always @ (posedge clk) begin
-		rdata <= mem[raddr];
+		cb_data <= cbuf[cb_raddr];
 	end
 
 //		self trigger & prescale 
-	reg [15:0] presc_cnt = 0;
-	reg strig = 0;
-	reg [1:0] strig_cnt = 0;
-	reg strig_d = 0;
-	
 	always @ (posedge ADCCLK) begin
 		if (pdata > $signed(sthr)) begin
-			if (~strig) begin
-				strig <= 1;
-				begaddr <= waddr - swinbeg;
-			end
-		end else begin
-		end
-	end
-	
-	always @ (posedge ADCCLK) begin
-		strig <= (| strig_cnt) & (!raw);
-		if (| strig_cnt) strig_cnt <= strig_cnt - 1;
-		if (pdata > (sthr[11:0] + cped[11:0]) && !strig_d) begin
-			strig_d <= 1;
-			if (presc_cnt >= prescale) begin 
-				if (!stmask) begin 
-					strig_cnt <= 3;
-					wwaddr <= waddr;
+			if (~discr) begin
+				// crossing threshold (for the first time)
+				discr <= 1;
+				// prescale threshold crossings
+				if (|presc_cnt) presc_cnt <= presc_cnt - 1;
+				else begin
+					presc_cnt <= prescale;
+					// produce self trigger and memorize current position in circular buffer
+					if (~stmask & ~raw) begin
+						strig <= 1;
+						strig_cnt <= strig_cnt + 1;	// count self triggers after prescale independently of transmission
+						str_addr <= cb_waddr;
+					end
 				end
-				presc_cnt <= 0;
-			end else begin
-				presc_cnt <= presc_cnt + 1;
 			end
+		end else if (trg_clr) begin
+			// threshold crossed back
+			// finish with trigger on command from state machine
+			discr <= 0;
+			strig <= 0;
 		end
-		if (pdata < (sthr[11:0] + cped[11:0])) strig_d <= 0;
-		wcopy_d <= wcopy;
-		if (wcopy_d) wwaddr <= waddr;
 	end
 
-//		state mathine definitions
-	localparam [4:0] ST_IDLE   = 5'b0_0001;
-	localparam [4:0] ST_STCOPY = 5'b0_0010;
-	localparam [4:0] ST_MTRIG  = 5'b0_0100;
-	localparam [4:0] ST_MTNUM  = 5'b0_1000;
-	localparam [4:0] ST_MTCOPY = 5'b1_0000;
-	reg [4:0] trg_state = ST_IDLE;
-	reg zthr_flag = 0;
-	wire [10:0] fifo_free;
-	
-	assign fifo_free = rfaddr - ffaddr;
-	assign fifo_full = (fifo_free < winlen[7:0] + 2) && (| fifo_free);
-
-//		trigger processing
-	reg [15:0] tofifo;
+//		master trigger	and token
+	always @ (posedge ADCCLK) begin
+		if (adc_trig & ~mtrig & ~tmask) begin
+			// catch the first adc_trig and corresponding trigger time
+			mtrig <= 1;
+			mtr_addr <= cb_waddr;
+			tr_time <= trig_time;
+		end else if (tok_got & trg_clr) begin
+			// finish with trigger on command from state machine after token is accepted
+			mtrig <= 0;
+		end
+	end
+	// process token from GTP (appears later than all adc_trig's)
 	always @ (posedge clk) begin
-//		master trigger start
-		if (trigger[15]) trigger_s <= trigger;
-		mtrig <= {mtrig[0], trigger[15]};
-		wcopy <= trigger[15] | mtrig[0];
+		if (mtrig)
+			// catch token from GTP
+			if (tok_vld) begin
+				tok_got <= 1;
+				tr_tok <= token[10:0];
+			end
+		else
+			// clear token flag on trigger end
+			tok_got <= 0;
+	end
+
+//		block writing on triggers with state machine
+	assign 	blklen = winlen + 2;
+	assign 	fifo_free = f_raddr - f_blkend;
+	assign 	fifo_full = (fifo_free < (winlen + 4)) & (|fifo_free);
+
+	// state machine
+	always @ (posedge clk) begin
+		trg_clr <= 0;		// default
 //		state machine
 		case (trg_state) 
-		ST_IDLE: if (!fifo_full) begin
-				if (mtrig[1] && !tmask) begin
-					trg_state <= ST_MTRIG;
-					trg_data <= trigger_s;
-					swfaddr <= wfaddr;			// save write fifo address if we will have to reject due to zero suppression
-				end else if (strig) begin
-					trg_state <= ST_STCOPY;
-					swfaddr <= wfaddr;			// save write fifo address if we will have to abort on real trigger
-					raddr <= wwaddr - swinbeg[9:0];
-					tofifo[15] = 1;
-					tofifo[14:9] = num;
-					tofifo[8:0] = winlen[8:0];
-					wfaddr <= wfaddr + 1;
-					copied <= 0;
-				end
-			end
-		ST_STCOPY: begin
-				if (mtrig[1] && !tmask) begin
-					trg_state <= ST_MTRIG;
-					trg_data <= trigger_s;
-					wfaddr <= swfaddr;
-				end else if (copied == winlen[7:0]) begin
-					trg_state <= ST_IDLE;
-					ffaddr <= wfaddr;
-				end else begin
-					tofifo = {4'h0, rdata};
-					raddr <= raddr + 1;
-					wfaddr <= wfaddr + 1;
-					copied <= copied + 1;
-				end
-			end
-		ST_MTRIG: begin
-				tofifo[15] = 1;
-				tofifo[14:9] = num;
-				tofifo[8:0] = winlen[8:0] + 1;
-				wfaddr <= wfaddr + 1;
-				raddr <= wwaddr - winbeg[9:0];
-				trg_state <= ST_MTNUM;
-				zthr_flag <= 0;
-			end
-		ST_MTNUM: begin
-				tofifo = {4'b0001 ,trg_data[11:0]};
-				wfaddr <= wfaddr + 1;
-				trg_state <= ST_MTCOPY;
-				copied <= 0;
-			end
-		ST_MTCOPY: begin
-				if (copied == winlen[7:0]) begin
-					trg_state <= ST_IDLE;
-					if (zthr_flag | raw) begin
-						ffaddr <= wfaddr;
-					end else begin
-						wfaddr <= swfaddr;
+		ST_IDLE: begin 
+			if (mtrig | strig) begin
+				if (~fifo_full) begin
+					// we can write to fifo, write CW
+					fifo[f_waddr] <= {1'b1, num, blklen};
+					f_waddr <= f_waddr + 1;
+					f_blkbeg <= f_waddr;		// save write fifo address if we will have to abort self on master or reject master on ZS
+					to_copy <= winlen;
+					if (mtrig) begin		// master trigger has priority
+						trg_state <= ST_MTRIG;
+					end else	begin // strig
+						trg_state <= ST_STRIG;
 					end
-				end else begin
-					tofifo = {4'h0, rdata};
-					raddr <= raddr + 1;
-					wfaddr <= wfaddr + 1;
-					copied <= copied + 1;
-					if (rdata > (zthr[11:0] + cped[11:0])) zthr_flag <= 1;
+				end else
+					// we can't write to fifo -- just finish the trigger
+					trg_state <= ST_TRGCLR;
+			end
+		end
+		ST_MTRIG: begin
+			// just skip one word, we cannot write token here
+			f_waddr <= f_waddr + 1;
+			cb_raddr <= mtr_addr - mwinbeg;	// prepare for reading from circular buffer
+			trg_state <= ST_MTIME;
+		end
+		ST_MTIME: begin
+			// write high resolution time
+			fifo[f_waddr] <= {13'h0000, tr_time};
+			f_waddr <= f_waddr + 1;
+			cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
+			zflag <= ~raw;							// set zero suppression flag (no zero suppression in raw mode)
+			trg_state <= ST_MTCOPY;
+		end
+		ST_MTCOPY: begin
+			// stream data from circular buffer to fifo
+			fifo[f_waddr] <= cb_data;
+			f_waddr <= f_waddr + 1;
+			cb_raddr <= cb_raddr + 1;
+			to_copy <= to_copy - 1;
+			if ($signed(cb_data) > $signed(zthr)) zflag <= 0;	// remove ZS flag if signal is above threshold
+			if (to_copy == 1)	trg_state <= ST_MTOK;
+		end
+		ST_MTOK: begin
+			if (zflag) begin
+				// if zero suppression happens, restore write pointer to the beg of block and finish with trigger
+				f_waddr <= f_blkbeg;
+				trg_state <= ST_TRGCLR;
+			end else if (tok_got) begin
+				// no ZS -- wait for token, write it to proper place and update block end pointer
+				fifo[f_blkbeg + 1] <= {2'b00, raw, 1'b1, blkpar, tr_tok};
+				f_blkend <= f_waddr;
+				blkpar <= ~blkpar;
+				trg_state <= ST_TRGCLR;
+			end
+		end
+		ST_STRIG: begin
+			if (mtrig) begin
+			// enforce master trigger priority
+				f_waddr <= f_blkbeg;
+				trg_state <= ST_IDLE;
+			end else begin
+			// write sequential self trigger number
+				fifo[f_waddr] <= {4'h0, blkpar, 1'b0, strig_cnt};
+				f_waddr <= f_waddr + 1;
+				cb_raddr <= str_addr - mwinbeg;	// prepare for reading from circular buffer
+				trg_state <= ST_STPED;
+			end
+		end
+		ST_STPED: begin
+			if (mtrig) begin
+			// enforce master trigger priority
+				f_waddr <= f_blkbeg;
+				trg_state <= ST_IDLE;
+			end else begin
+			// write pedestal value
+				fifo[f_waddr] <= {4'h0, ped};
+				f_waddr <= f_waddr + 1;
+				cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
+				trg_state <= ST_STCOPY;
+			end
+		end
+		ST_STCOPY: begin
+			if (mtrig) begin
+			// enforce master trigger priority
+				f_waddr <= f_blkbeg;
+				trg_state <= ST_IDLE;
+			end else begin
+				// stream data from circular buffer to fifo
+				fifo[f_waddr] <= cb_data;
+				f_waddr <= f_waddr + 1;
+				cb_raddr <= cb_raddr + 1;
+				to_copy <= to_copy - 1;
+				if (to_copy == 1)	begin
+					f_blkend <= f_waddr;
+					blkpar <= ~blkpar;
+					trg_state <= ST_TRGCLR;
 				end
 			end
+		end
+		ST_TRGCLR: begin
+			trg_clr <= 1;
+			if (~mtrig & ~strig)
+				trg_state <= ST_IDLE;
+		end
 		default: trg_state <= ST_IDLE;
 		endcase
-		fifo[wfaddr] <= tofifo;
 	end
 
 //		Fifo to arbitter
