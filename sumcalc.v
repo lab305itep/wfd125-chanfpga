@@ -21,7 +21,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 module sumcalc(
 		input clk,						// master clock
-		input [191:0] data,			// input data
+		input [255:0] data,			// input data
 		input [47:0] sumdata,		// sums from 3 other xilinxes
 		input [2:0]  xcomma,			// commas from other xilinxes
 		output reg [15:0] sumres,	// 16-channel sum
@@ -42,10 +42,10 @@ module sumcalc(
 	reg [15:0] sum4 [3:0];
 	reg [15:0] sum16;
 	always @ (posedge clk) begin
-		sum4[0] <= data[11:0] + data[23:12] + data[35:24] + data[47:36];
-		sum4[1] <= data[59:48] + data[71:60] + data[83:72] + data[95:84];
-		sum4[2] <= data[107:96] + data[119:108] + data[131:120] + data[143:132];
-		sum4[3] <= data[155:144] + data[167:156] + data[179:168] + data[191:180];
+		sum4[0] <= data[0+:16] + data[16+:16] + data[32+:16] + data[48+:16];
+		sum4[1] <= data[64+:16] + data[80+:16] + data[96+:16] + data[112+:16];
+		sum4[2] <= data[128+:16] + data[144+:16] + data[160+:16] + data[176+:16];
+		sum4[3] <= data[192+:16] + data[208+:16] + data[224+:16] + data[240+:16];
 		sum16 <= sum4[0] + sum4[1] + sum4[2] + sum4[3];
 		if (sum16 > s16thr) begin
 			sumres <= sum16;

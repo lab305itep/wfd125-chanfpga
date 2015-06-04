@@ -27,7 +27,7 @@
 //      This character interrupts data blocks.
 //	 3:1 - send summ of all channels, comma if the summ is too small.
 //    Input :
-//	 0 - trigger from the communication Xilinx
+//	 0 - trigger token from the communication Xilinx
 //  3:1 - summs from the other Xilinxes.
 //		CSR bits:
 //	3:0 - pattern for ADC receiver checks
@@ -105,6 +105,7 @@ module fpga_chan(
 
 `include "version.vh"
 
+	localparam		NFIFO = 17;
 //		Wires and registers
 
 	// ADC clocks, frames and data organized into buses
@@ -115,27 +116,29 @@ module fpga_chan(
 	assign	AFRM = {AFD, AFC, AFB, AFA};
 	assign	ADAT = {ADD, ADC, ADB, ADA};
 
-	wire 				CLK125;				//	GTP reciever clock = system clock
-	wire 	[3:0] 	ADCCLK;				//	clocks accompanying ADC deserialized data
-	wire 	[191:0] 	ADCDAT;				// deserialized data from ADC
-	wire 	[63:0]  	gtp_data_i;			// data to GTP
-	wire 	[3:0]   	gtp_comma_i;		// k-char signature to GTP
-	wire 	[63:0]  	gtp_data_o; 		// data ftom GTP
-	wire 	[3:0]   	gtp_comma_o;		// k-char signature from GTP
-	wire [31:0]  	CSR;					// command and status register
-	wire 				seq_enable;			// check enable (check interval)
+	wire 					CLK125;				//	GTP reciever clock = system clock
+	wire 	[3:0] 		ADCCLK;				//	clocks accompanying ADC deserialized data
+	wire 	[191:0] 		ADCDAT;				// deserialized data from ADC
+	wire 	[63:0]  		gtp_data_i;			// data to GTP
+	wire 	[3:0]   		gtp_comma_i;		// k-char signature to GTP
+	wire 	[63:0]  		gtp_data_o; 		// data ftom GTP
+	wire 	[3:0]   		gtp_comma_o;		// k-char signature from GTP
+	wire [31:0]  		CSR;					// command and status register
+	wire 					seq_enable;			// check enable (check interval)
 	
+	wire [15:0]  		d2arb;				// data from channel fifo's to sending arbitter
+	wire [NFIFO-1:0]  arb_want;			// arbitter data request to fifo's
+	wire [NFIFO-1:0] 	fifo_have;			// fifo's reply to arbitter if they have data
+
+	wire 					sertrig;				// serial trigger as accepted from ICX[1:0]
+	wire [3:0]			adc_trig;			// master trigger pulse on certain ADC CLK
+	wire [11:0]			trig_time;			// 3 bit high resolution trigger time valid with proper adc_trig
+
 	wire [255:0]  	par_array;
-	wire [255:0]  	d2arb;
 	wire [255:0]  	d2sum;
 	wire [255:0]  	adc_ped;
-	wire [15:0]  	req2arb;
-	wire [15:0]  	ack4arb;
 	wire 				sum_trig;
-	wire 				sertrig;				// serial trigger as accepted from ICX[1:0]
-	wire [3:0]		adc_trig;			// master trigger pulse on certain ADC CLK
-	wire [11:0]		trig_time;			// 3 bit high resolution trigger time valid with proper adc_trig
-
+	
 
 //		WB-bus
 	wire wb_clk;
@@ -373,7 +376,7 @@ module fpga_chan(
 			.zthr			(par_array[PAR_ZTHR*16+11:PAR_ZTHR*16]), 
 			.sthr			(par_array[PAR_STTHR*16+11:PAR_STTHR*16]), 
 			.prescale	(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
-			.mwinbeg		(par_array[PAR_MWINBEG*16+9:PAR_WINBEG*16]), 
+			.mwinbeg		(par_array[PAR_MWINBEG*16+9:PAR_MWINBEG*16]), 
 			.swinbeg		(par_array[PAR_SWINBEG*16+9:PAR_SWINBEG*16]), 
 			.winlen		(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 
 			.smask		(par_array[PAR_SMASK*16+i]), 
@@ -389,35 +392,36 @@ module fpga_chan(
 			// trigger pulse and time
 			.adc_trig	(adc_trig[i/4]),
 			.trig_time	(trig_time[3*(i/4)+2:3*(i/4)]),
+			// inhibit
+			.inhibit		(ICX[6]),
 			// arbitter interface for data output
-			.dout			(d2arb[16*i+15:16*i]), 
-			.req			(req2arb[i]), 
-			.ack			(ack4arb[i]), 
-			.fifo_full	(),
+			.give			(arb_want[i]), 
+			.have			(fifo_have[i]), 
+			.dout			(d2arb), 
+			.missed		(),
 			// to sumtrig
-			.d2sum(d2sum[16*i+15:16*i]), 
+			.d2sum		(d2sum[16*i+15:16*i])
 		);
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		end
 	endgenerate
 
-//		Pattern check sequencer
-	checkseq USEQ(
-		.clk(CLK125),		// system clock
-		.start(CSR[7]),	// start
-		.cntmax(CSR[6:4]),
-		.enable(seq_enable)
-	);
-
+// ??? so far
+	assign fifo_have[16] = 0;
 //		arbitter
-	arbitter UARB(
-		.clk(CLK125),
-		.data(d2arb),
-		.dout(gtp_data_i[15:0]),
-		.kchar(gtp_comma_i[0]),
-		.trigger(sum_trig),
-		.req(req2arb),
-		.ack(ack4arb)
+	snd_arb  # (
+		.NFIFO			(NFIFO)
+		) UARB (
+		.clk				(CLK125),
+		// fifo control and data
+		.arb_want		(arb_want),
+		.fifo_have		(fifo_have),
+		.datain			(d2arb),
+		// trigger from summing to be sent to main
+		.trig				(sum_trig),
+		// GTP data for sending
+		.dataout			(gtp_data_i[15:0]),
+		.kchar			(gtp_comma_i[0])
    );
 
 //		Summa and trigger
@@ -436,5 +440,13 @@ module fpga_chan(
 		.s64thr(par_array[PAR_MTTHR*16+15:PAR_MTTHR*16]),	// 64-channel sum threshold
 		.trigout(sum_trig)				// 64-channel trigger
    );
+
+//		Pattern check sequencer
+	checkseq USEQ(
+		.clk(CLK125),		// system clock
+		.start(CSR[7]),	// start
+		.cntmax(CSR[6:4]),
+		.enable(seq_enable)
+	);
 
 endmodule
