@@ -71,9 +71,15 @@ module prc1chan # (
 		output 				have,			// acknowledge to arbitter, immediate with give
 		output [15:0] 		dout,			// tristate data to arbitter
 		output reg			missed,		// 1 clk pulse when fifo cannot accept data because of full
+		
+		// ???
+		output [4:0] debug,
+		
 		// to sumtrig
 		output reg [15:0] d2sum			// (ADC - pedestal) signed to trigger summation
    );
+
+	assign debug = {trg_clr, tok_got, mtrig, tok_vld, adc_trig};
 
 	// pedestal calculations
 		localparam 					PBITS = 16;			// number of bits in pedestal window counter
@@ -185,26 +191,29 @@ module prc1chan # (
 
 //		self trigger & prescale 
 	always @ (posedge ADCCLK) begin
-		if (pdata > $signed(sthr)) begin
-			if (~discr) begin
-				// crossing threshold (for the first time)
-				discr <= 1;
-				// prescale threshold crossings
-				if (|presc_cnt) presc_cnt <= presc_cnt - 1;
-				else begin
-					presc_cnt <= prescale;
-					// produce self trigger and memorize current position in circular buffer
-					if (~stmask & ~raw & ~inhibit) begin
+		if (~stmask & ~raw & ~inhibit) begin
+			if (pdata > $signed({1'b0,sthr})) begin
+				if (~discr) begin
+					// crossing threshold (for the first time)
+					discr <= 1;
+					// prescale threshold crossings
+					if (|presc_cnt) begin
+						presc_cnt <= presc_cnt - 1;
+					end else begin
+						presc_cnt <= prescale;
+						// produce self trigger and memorize current position in circular buffer
 						strig <= 1;
 						strig_cnt <= strig_cnt + 1;	// count self triggers after prescale independently of transmission
 						str_addr <= cb_waddr;
 					end
 				end
-			end
-		end else if (trg_clr) begin
-			// threshold crossed back
-			// finish with trigger on command from state machine
-			discr <= 0;
+			end else if (pdata <= $signed({1'b0,sthr[ABITS-1:1]})) begin
+				// HALF threshold crossed back (noise reduction)
+				discr <= 0;
+				// finish with trigger on command from state machine
+				if (trg_clr) strig <= 0;
+			end 
+		end else begin
 			strig <= 0;
 		end
 	end
@@ -216,22 +225,23 @@ module prc1chan # (
 			mtrig <= 1;
 			mtr_addr <= cb_waddr;
 			tr_time <= trig_time;
-		end else if (tok_got & trg_clr) begin
+		end else if (trg_clr) begin
 			// finish with trigger on command from state machine after token is accepted
 			mtrig <= 0;
 		end
 	end
 	// process token from GTP (appears later than all adc_trig's)
 	always @ (posedge clk) begin
-		if (mtrig)
+		if (mtrig) begin
 			// catch token from GTP
 			if (tok_vld) begin
 				tok_got <= 1;
 				tr_tok <= token[10:0];
 			end
-		else
+		end else begin
 			// clear token flag on trigger end
 			tok_got <= 0;
+		end
 	end
 
 //		block writing on triggers with state machine
@@ -248,14 +258,19 @@ module prc1chan # (
 		ST_IDLE: begin 
 			if (mtrig | strig) begin
 				if (~fifo_full) begin
+					// write nothing on zero winlen
+					if (~|winlen) begin
+						trg_state <= ST_TRGCLR;
+					end else begin
 					// we can write to fifo, write CW
-					tofifo = {1'b1, num, blklen};
-					f_waddr <= f_waddr + 1;
-					to_copy <= winlen;
-					if (mtrig) begin		// master trigger has priority
-						trg_state <= ST_MTRIG;
-					end else	begin // strig
-						trg_state <= ST_STRIG;
+						tofifo = {1'b1, num, blklen};
+						f_waddr <= f_waddr + 1;
+						to_copy <= winlen;
+						if (mtrig) begin		// master trigger has priority
+							trg_state <= ST_MTRIG;
+						end else	begin // strig
+							trg_state <= ST_STRIG;
+						end
 					end
 				end else begin
 					// we can't write to fifo -- just finish the trigger
@@ -284,7 +299,7 @@ module prc1chan # (
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;
 			to_copy <= to_copy - 1;
-			if ($signed(cb_data) > $signed(zthr)) zflag <= 0;	// remove ZS flag if signal is above threshold
+			if ($signed(cb_data) > $signed({1'b0, zthr})) zflag <= 0;	// remove ZS flag if signal is above threshold
 			if (to_copy == 1)	begin
 				f_waddr <= f_blkend + 1;			// prepare waddr for token writing
 				f_waddr_s <= f_waddr + 1;			// save next waddr for further restoration
@@ -356,6 +371,8 @@ module prc1chan # (
 		end
 		default: trg_state <= ST_IDLE;
 		endcase
+		// write fifo
+		fifo[f_waddr] <= tofifo;
 	end
 
 //		Fifo and it's connection to arbitter
@@ -364,8 +381,6 @@ module prc1chan # (
 	assign dout = (have) ? f_data : 16'hZZZZ;
 	// fifo
 	always @ (posedge clk) begin
-		// write fifo
-		fifo[f_waddr] <= tofifo;
 		// read fifo
 		f_data <= fifo[graddr];
 		// increment raddr on data outputs

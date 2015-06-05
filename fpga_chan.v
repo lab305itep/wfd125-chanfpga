@@ -147,7 +147,7 @@ module fpga_chan(
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
 
 	assign ACNTR = 4'bzzzz;
-	assign TP = {gtp_comma_o[0], comma2gtp, sum_trig, 2'b0};
+	assign TP[5:1] = dbg[4:0];
 
 //		GTP communication module
 	
@@ -363,6 +363,9 @@ module fpga_chan(
 	
 	assign ICX[10:7] = adc_trig;
 
+// ????
+wire [79:0] dbg;
+
 //		channel processing
 	generate
 		for (i=0; i<16; i = i + 1) begin: UPRC1
@@ -399,6 +402,10 @@ module fpga_chan(
 			.have			(fifo_have[i]), 
 			.dout			(d2arb), 
 			.missed		(),
+			
+			// ????
+			.debug(dbg[5*i+4:5*i]),
+			
 			// to sumtrig
 			.d2sum		(d2sum[16*i+15:16*i])
 		);

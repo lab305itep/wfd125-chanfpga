@@ -247,16 +247,17 @@ wire CLKIN_b;
 		if (~(|TR_d) & (|TR_r)) begin
 			// previous clock trig at low level, current contains high
 			adtrig <= 1;
-			// data comes MSB first, i.e. latest trigger is the highest 1
+			// data comes MSB first, i.e. latest trigger is the lowest 1
 			case (TR_r)
-				6'b100000 : trtime <= 5;	// latest
-				6'b110000 : trtime <= 4;
-				6'b111000 : trtime <= 3;
-				6'b111100 : trtime <= 2;
-				6'b111110 : trtime <= 1;
+				6'b000001 : trtime <= 5;	// latest
+				6'b000011 : trtime <= 4;
+				6'b000111 : trtime <= 3;
+				6'b001111 : trtime <= 2;
+				6'b011111 : trtime <= 1;
 				6'b111111 : trtime <= 0;	// earliest
 				default   : trtime <= 7;	// error
 			endcase
+			trtime <= TR_r;
 		end
 		TR_d <= TR_r;
 	end
