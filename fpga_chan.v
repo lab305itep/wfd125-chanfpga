@@ -425,7 +425,8 @@ wire [79:0] dbg;
 		.fifo_have		(fifo_have),
 		.datain			(d2arb),
 		// trigger from summing to be sent to main
-		.trig				(sum_trig),
+//		.trig				(sum_trig),
+		.trig				(1'b0),
 		// GTP data for sending
 		.dataout			(gtp_data_i[15:0]),
 		.kchar			(gtp_comma_i[0])

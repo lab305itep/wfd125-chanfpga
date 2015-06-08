@@ -137,7 +137,7 @@ module prc1chan # (
 
 		reg [3:0] 				trg_state = ST_IDLE;	// state
 		reg [8:0] 				to_copy = 0;			// number of words from CB left for copying
-		wire [8:0] 				blklen;					// block length derived from winlen
+		reg [8:0] 				blklen;					// block length derived from winlen
 		reg 						zflag = 0;				// flag to apply zero suppression to the current block
 		reg						blkpar = 0;				// sequential parity of any sent block
 		reg						trg_clr;					// flag to indicate end of trigger block writing
@@ -170,7 +170,7 @@ module prc1chan # (
 // 	pedestal subtraction and inversion
 	always @ (posedge ADCCLK) begin
 		if (raw) begin
-			pdata <= ADCDAT;
+			pdata <= {{(16-ABITS){1'b0}} ,ADCDAT};
 		end else if (invert) begin
 			pdata <= ped_s - ADCDAT;
 		end else begin
@@ -245,7 +245,6 @@ module prc1chan # (
 	end
 
 //		block writing on triggers with state machine
-	assign 	blklen = winlen + 2;
 	assign 	fifo_free = f_raddr - f_blkend;
 	assign 	fifo_full = (fifo_free < (winlen + 3)) & (|fifo_free);
 
@@ -253,6 +252,7 @@ module prc1chan # (
 	always @ (posedge clk) begin
 		trg_clr <= 0;		// default
 		missed <= 0;		// default
+		blklen <= winlen + 2;	// relatch for better timing
 //		state machine
 		case (trg_state) 
 		ST_IDLE: begin 
@@ -295,7 +295,7 @@ module prc1chan # (
 		end
 		ST_MTCOPY: begin
 			// stream data from circular buffer to fifo
-			tofifo = cb_data;
+			tofifo = {1'b0, cb_data[14:0]};
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;
 			to_copy <= to_copy - 1;
@@ -340,7 +340,7 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 			// write pedestal value
-				tofifo = {4'h0, ped};
+				tofifo = {{(16-ABITS){1'b0}}, ped};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
 				trg_state <= ST_STCOPY;
@@ -353,7 +353,7 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 				// stream data from circular buffer to fifo
-				tofifo = cb_data;
+				tofifo = {1'b0, cb_data[14:0]};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= cb_raddr + 1;
 				to_copy <= to_copy - 1;
