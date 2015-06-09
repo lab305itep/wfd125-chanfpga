@@ -147,7 +147,6 @@ module fpga_chan(
 	always @ (posedge wb_clk) wb_rst <= ICX[5];
 
 	assign ACNTR = 4'bzzzz;
-	assign TP[5:1] = dbg[4:0];
 
 //		GTP communication module
 	
@@ -427,6 +426,7 @@ wire [79:0] dbg;
 		// trigger from summing to be sent to main
 //		.trig				(sum_trig),
 		.trig				(1'b0),
+.debug (TP[5:1]),
 		// GTP data for sending
 		.dataout			(gtp_data_i[15:0]),
 		.kchar			(gtp_comma_i[0])

@@ -133,7 +133,8 @@ module prc1chan # (
 		localparam ST_STRIG  = 5;
 		localparam ST_STPED	= 6;
 		localparam ST_STCOPY = 7;
-		localparam ST_TRGCLR	= 8;
+		localparam ST_TRGFIN = 8;
+		localparam ST_TRGCLR	= 9;
 
 		reg [3:0] 				trg_state = ST_IDLE;	// state
 		reg [8:0] 				to_copy = 0;			// number of words from CB left for copying
@@ -263,8 +264,8 @@ module prc1chan # (
 						trg_state <= ST_TRGCLR;
 					end else begin
 					// we can write to fifo, write CW
-						tofifo = {1'b1, num, blklen};
-						f_waddr <= f_waddr + 1;
+						tofifo <= {1'b1, num, blklen};
+//						f_waddr <= f_waddr + 1;
 						to_copy <= winlen;
 						if (mtrig) begin		// master trigger has priority
 							trg_state <= ST_MTRIG;
@@ -287,7 +288,7 @@ module prc1chan # (
 		end
 		ST_MTIME: begin
 			// write high resolution time
-			tofifo = {13'h0000, tr_time};
+			tofifo <= {13'h0000, tr_time};
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
 			zflag <= ~raw;							// set zero suppression flag (no zero suppression in raw mode)
@@ -295,14 +296,15 @@ module prc1chan # (
 		end
 		ST_MTCOPY: begin
 			// stream data from circular buffer to fifo
-			tofifo = {1'b0, cb_data[14:0]};
+			tofifo <= {1'b0, cb_data[14:0]};
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;
 			to_copy <= to_copy - 1;
 			if ($signed(cb_data) > $signed({1'b0, zthr})) zflag <= 0;	// remove ZS flag if signal is above threshold
 			if (to_copy == 1)	begin
-				f_waddr <= f_blkend + 1;			// prepare waddr for token writing
-				f_waddr_s <= f_waddr + 1;			// save next waddr for further restoration
+//				f_waddr <= f_blkend + 1;			// prepare waddr for token writing
+//				f_waddr_s <= f_waddr + 1;			// save next waddr for further restoration
+				f_waddr_s <= f_waddr + 2;			// save last waddr for further restoration
 				trg_state <= ST_MTOK;
 			end
 		end
@@ -313,11 +315,13 @@ module prc1chan # (
 				trg_state <= ST_TRGCLR;
 			end else if (tok_got) begin
 				// no ZS -- wait for token, write it to proper place and update block end pointer
-				tofifo = {2'b00, raw, 1'b1, blkpar, tr_tok};
-				f_waddr <= f_waddr_s;			// restore waddr to the first empty word
-				f_blkend <= f_waddr_s;			// f_blkend now points to the end of the newly written block
-				blkpar <= ~blkpar;
-				trg_state <= ST_TRGCLR;
+				tofifo <= {2'b00, raw, 1'b1, blkpar, tr_tok};
+//				f_waddr <= f_waddr_s;			// restore waddr to the first empty word
+//				f_blkend <= f_waddr_s;			// f_blkend now points to the end of the newly written block
+//				blkpar <= ~blkpar;
+//				trg_state <= ST_TRGCLR;
+				f_waddr <= f_blkend + 1;
+				trg_state <= ST_TRGFIN;
 			end
 		end
 		ST_STRIG: begin
@@ -327,8 +331,8 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 			// write sequential self trigger number
-				tofifo = {4'h0, blkpar, 1'b0, strig_cnt};
-				f_waddr <= f_waddr + 1;
+				tofifo <= {4'h0, blkpar, 1'b0, strig_cnt};
+//				f_waddr <= f_waddr + 1;
 				cb_raddr <= str_addr - swinbeg;	// prepare for reading from circular buffer
 				trg_state <= ST_STPED;
 			end
@@ -340,7 +344,7 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 			// write pedestal value
-				tofifo = {{(16-ABITS){1'b0}}, ped};
+				tofifo <= {{(16-ABITS){1'b0}}, ped};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
 				trg_state <= ST_STCOPY;
@@ -353,16 +357,24 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 				// stream data from circular buffer to fifo
-				tofifo = {1'b0, cb_data[14:0]};
+				tofifo <= {1'b0, cb_data[14:0]};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= cb_raddr + 1;
 				to_copy <= to_copy - 1;
 				if (to_copy == 1)	begin
-					f_blkend <= f_waddr;		// f_blkend now points to the end of the newly written block
-					blkpar <= ~blkpar;
-					trg_state <= ST_TRGCLR;
+//					f_blkend <= f_waddr;		// f_blkend now points to the end of the newly written block
+//					blkpar <= ~blkpar;
+//					trg_state <= ST_TRGCLR;
+					f_waddr_s <= f_waddr + 2;
+					trg_state <= ST_TRGFIN;
 				end
 			end
+		end
+		ST_TRGFIN: begin
+			f_waddr <= f_waddr_s;			// restore waddr to the first empty word
+			f_blkend <= f_waddr_s;			// f_blkend now points to the end of the newly written block
+			blkpar <= ~blkpar;
+			trg_state <= ST_TRGCLR;
 		end
 		ST_TRGCLR: begin
 			trg_clr <= 1;
@@ -371,16 +383,9 @@ module prc1chan # (
 		end
 		default: trg_state <= ST_IDLE;
 		endcase
+		// fifo
 		// write fifo
 		fifo[f_waddr] <= tofifo;
-	end
-
-//		Fifo and it's connection to arbitter
-	assign graddr = (have) ? (f_raddr + 1) : f_raddr;	
-	assign have = give & (f_raddr != f_blkend);
-	assign dout = (have) ? f_data : 16'hZZZZ;
-	// fifo
-	always @ (posedge clk) begin
 		// read fifo
 		f_data <= fifo[graddr];
 		// increment raddr on data outputs
@@ -388,6 +393,11 @@ module prc1chan # (
 			f_raddr <= f_raddr + 1;
 		end	
 	end
+
+//		Fifo and it's connection to arbitter
+	assign graddr = (have) ? (f_raddr + 1) : f_raddr;	
+	assign have = give & (f_raddr != f_blkend);
+	assign dout = (have) ? f_data : 16'hZZZZ;
 
 //		to total sum -- resync adc data to clk
 	// fill buffer at ADFCCLK
