@@ -126,7 +126,7 @@ module fpga_chan(
 	wire [31:0]  		CSR;					// command and status register
 	wire 					seq_enable;			// check enable (check interval)
 	
-	wire [15:0]  		d2arb;				// data from channel fifo's to sending arbitter
+	wire [16*NFIFO-1:0]  		d2arb;				// data from channel fifo's to sending arbitter
 	wire [NFIFO-1:0]  arb_want;			// arbitter data request to fifo's
 	wire [NFIFO-1:0] 	fifo_have;			// fifo's reply to arbitter if they have data
 
@@ -370,7 +370,7 @@ wire [79:0] dbg;
 		for (i=0; i<16; i = i + 1) begin: UPRC1
 		prc1chan UCHAN (
 			.clk			(CLK125),
-			.num			((CHN << 4) + i), 
+			.num			({CHN, i[3:0]}), 
 			// ADC data from its reciever
 			.ADCCLK		(ADCCLK[i/4]),
 			.ADCDAT		(ADCDAT[12*i+11:12*i]), 
@@ -399,7 +399,7 @@ wire [79:0] dbg;
 			// arbitter interface for data output
 			.give			(arb_want[i]), 
 			.have			(fifo_have[i]), 
-			.dout			(d2arb), 
+			.dout			(d2arb[16*i+15:16*i]), 
 			.missed		(),
 			
 			// ????
@@ -414,6 +414,7 @@ wire [79:0] dbg;
 
 // ??? so far
 	assign fifo_have[16] = 0;
+	assign d2arb[16*NFIFO-1:16*(NFIFO-1)] = 0;
 //		arbitter
 	snd_arb  # (
 		.NFIFO			(NFIFO)
