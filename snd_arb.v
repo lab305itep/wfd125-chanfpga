@@ -29,7 +29,8 @@ module snd_arb #(
 output [4:0] debug,
 		// GTP data for sending
 		output reg [15:0]		dataout,
-		output reg				kchar
+		output reg				kchar,
+		input [8:0]				winlen
 		);
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
@@ -39,8 +40,6 @@ output [4:0] debug,
 	wire 					fifohave;			// OR of dvalids from fifos, actually have from currently selected fifo
 	reg [8:0]			towrite = 0;		// number of words in block to write
 	wire					nextf;				// force increment of RR counter (after block is fully read)
-	reg					err_undr;			// underrun error -- CW accepted earlier than expected
-	reg					err_ovr;				// overrun error -- CW accepted later than expected
 	wire [15:0]		   datamux [NFIFO-1:0];
 
 	genvar i;
@@ -59,8 +58,6 @@ output [4:0] debug,
 assign debug = 0;
 
 	always @ (posedge clk) begin
-		err_undr <= 0;
-		err_ovr <= 0;
 		if (trig) begin
 			// send trigger out of band
 			dataout <= CH_TRIG;
@@ -76,23 +73,15 @@ assign debug = 0;
 					rr_cnt <= rr_cnt + 1;
 					arb_want <= {arb_want[NFIFO-2:0], 1'b0};
 				end
+				towrite <= winlen + 3;
 			end
 			// send data or comma
 			if (fifohave) begin
 				// send data if we have any
 				dataout <= datamux[rr_cnt];
 				kchar <= 0;
+				if (|towrite) towrite <= towrite - 1;
 				// check block structure
-				if (datamux[rr_cnt][15]) begin
-					// this is CW
-					towrite <= datamux[rr_cnt][8:0];		// number of words to write -1
-					if (|towrite) begin
-						err_undr <= 1;				// must accept next CW with towrite=0, otherwize it's too early
-					end
-				end else begin
-					if (|towrite) towrite <= towrite - 1;
-					else err_ovr <= 1;			// must have accepted CW with towrite=0, otherwize it's too late
-				end
 			end else begin
 				// send comma if no data
 				dataout <= CH_COMMA;
