@@ -22,15 +22,14 @@ module snd_arb #(
 		input						clk,
 		// fifo control and data
 		output reg [NFIFO-1:0]	arb_want,
-		input [NFIFO-1:0]		fifo_have,
-		input	[NFIFO*16-1:0]			datain,
+		input [NFIFO-1:0]			fifo_have,
+		input	[NFIFO*16-1:0]		datain,
 		// trigger from summing to be sent to main
-		input						trig,
-output [4:0] debug,
+		input							trig,
+		output reg [4:0] 			debug,
 		// GTP data for sending
-		output reg [15:0]		dataout,
-		output reg				kchar,
-		input [8:0]				winlen
+		output reg [15:0]			dataout,
+		output reg					kchar
 		);
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
@@ -39,55 +38,88 @@ output [4:0] debug,
 	reg [4:0]			rr_cnt = 0;			// counter for Round Robbin arbitration
 	wire 					fifohave;			// OR of dvalids from fifos, actually have from currently selected fifo
 	reg [8:0]			towrite = 0;		// number of words in block to write
-	wire					nextf;				// force increment of RR counter (after block is fully read)
 	wire [15:0]		   datamux [NFIFO-1:0];
-
+	reg					trig_d = 0;			// delayed trigger
+	reg [1:0]			state = 0;
+	localparam ST_NEXT = 0;
+	localparam ST_WAIT = 1;
+	localparam ST_CW = 2;
+	localparam ST_COPY = 3;
+	
 	genvar i;
    generate
       for (i=0; i<NFIFO; i=i+1) 
       begin: gwant
-//         assign arb_want[i] = ((rr_cnt == i) & ~trig);
 			assign datamux[i] = datain[16*i +:16];
       end
    endgenerate
 
 	// RR arbitration and intermediate fifo
 	assign	fifohave = |fifo_have;
-	assign	nextf = (towrite == 1);
 
-assign debug = 0;
 
 	always @ (posedge clk) begin
-		if (trig) begin
-			// send trigger out of band
-			dataout <= CH_TRIG;
+		debug <= {kchar, dataout[15], fifohave, |towrite, rr_cnt == 0};
+	//	comma is the default
+		kchar <= 1;
+		dataout <= CH_COMMA;
+	// send data if we have it
+		if (fifohave) begin
+			kchar <= 0;
+			dataout <= datamux[rr_cnt];
+		end 
+		if (trig_d) begin
+	// send trigger when we paused the data - one clock delay
 			kchar <= 1;
-		end else begin
-			// advance round robbin counter
-			if (~fifohave | nextf) begin
-//			if (~fifohave) begin
-				if (rr_cnt == NFIFO-1) begin
-					rr_cnt <= 0;
-					arb_want <= 1;
-				end else begin
-					rr_cnt <= rr_cnt + 1;
-					arb_want <= {arb_want[NFIFO-2:0], 1'b0};
-				end
-				towrite <= winlen + 3;
-			end
-			// send data or comma
-			if (fifohave) begin
-				// send data if we have any
-				dataout <= datamux[rr_cnt];
-				kchar <= 0;
-				if (|towrite) towrite <= towrite - 1;
-				// check block structure
-			end else begin
-				// send comma if no data
-				dataout <= CH_COMMA;
-				kchar <= 1;
-			end
+			dataout <= CH_TRIG;
 		end
+		trig_d <= trig;
+		
+		arb_want <= 0;
+		if (trig) begin
+			if (state == ST_WAIT) begin
+				state <= ST_CW;
+			end
+		end else begin
+			case (state)
+				ST_NEXT: begin
+					if (rr_cnt == NFIFO-1) begin
+						rr_cnt <= 0;
+						arb_want <= 1;
+					end else begin
+						rr_cnt <= rr_cnt + 1;
+						arb_want[rr_cnt + 1] <= 1;
+					end
+					state <= ST_WAIT;
+				end
+				ST_WAIT: begin
+					state <= ST_CW;
+				end
+				ST_CW: begin
+					if (fifohave) begin 
+						arb_want[rr_cnt + 1] <= 1;
+						if (datamux[rr_cnt][15]) begin
+							towrite <= datamux[rr_cnt][8:0];
+							state <= ST_COPY;
+						end else begin
+							state <= ST_WAIT;
+						end
+					end else begin
+						state <= ST_NEXT;
+					end
+				end
+				ST_COPY: begin
+					if (towrite == 1) begin
+						arb_want[rr_cnt + 1] <= 1;
+						towrite <= towrite - 1;
+					end else begin
+						state <= ST_NEXT;
+						arb_want[rr_cnt + 1] <= 1;
+					end
+				end
+			endcase
+		end
+
 	end
 
 endmodule
