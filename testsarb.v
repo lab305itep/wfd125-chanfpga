@@ -59,15 +59,19 @@ module testsarb;
 			end
 		end
    endgenerate */
+
+	assign flag = (arb_want != arb_old) & |arb_want;
+
 	integer i;
 	always @(posedge clk) begin
 		if (|arb_want) arb_old <= arb_want;
-		if (flag & |arb_want) cnt <= 0; else cnt <= cnt + 1;
-		fifo_have <= (cnt == 9'h003 && ~flag) ? 0 : arb_want;
+		if (flag) cnt <= 0; else cnt <= cnt + 1;
+		fifo_have <= (cnt == 9'h004 && ~flag) ? 0 : arb_want;
 		for (i=0; i<17; i=i+1) begin: fggg
-			datain[16*i +: 16] <= {flag, i[5:0], (flagf
-	assign flag = arb_want != arb_old;
-
+			datain[16*i +: 16] <= {flag, i[5:0], (flag) ? 9'h003 : cnt};
+		end
+	end
+	
 	initial begin
 		// Initialize Inputs
 		clk = 0;

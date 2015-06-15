@@ -15,7 +15,7 @@
 
   <!--                                                          -->
 
-  <!-- Copyright (c) 1995-2013 Xilinx, Inc.  All rights reserved. -->
+  <!-- Copyright (c) 1995-2012 Xilinx, Inc.  All rights reserved. -->
 
   <version xmlns="http://www.xilinx.com/XMLSchema">11.1</version>
 
@@ -88,7 +88,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
     </transform>
-    <transform xil_pn:end_ts="1434404427" xil_pn:in_ck="1685995642952126168" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1434404427">
+    <transform xil_pn:end_ts="1434406296" xil_pn:in_ck="4389556739030053747" xil_pn:name="TRAN_copyAbstractToPostAbstractSimulation" xil_pn:start_ts="1434406296">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
@@ -120,6 +120,7 @@
       <outfile xil_pn:name="spi_wbmaster.v"/>
       <outfile xil_pn:name="sumcalc.v"/>
       <outfile xil_pn:name="testsarb.v"/>
+      <outfile xil_pn:name="timescale.v"/>
       <outfile xil_pn:name="version.vh"/>
       <outfile xil_pn:name="wb_intercon.v"/>
       <outfile xil_pn:name="wb_intercon.vh"/>
@@ -147,7 +148,7 @@
       <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/implement/shared_vio.ngc"/>
       <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11_tile.v"/>
     </transform>
-    <transform xil_pn:end_ts="1434404427" xil_pn:in_ck="1495261648405644370" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1434404427">
+    <transform xil_pn:end_ts="1434406296" xil_pn:in_ck="4389556739030053747" xil_pn:name="TRAN_copyPostAbstractToPreSimulation" xil_pn:start_ts="1434406296">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
@@ -159,12 +160,6 @@
       <outfile xil_pn:name="../wfd125-mainfpga/inoutreg.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/verilog_utils.vh"/>
       <outfile xil_pn:name="../wfd125-mainfpga/intercon/wb_mux.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/frame_check.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/frame_gen.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/mgt_usrclk_source_pll.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11/example_design/s6_gtpwizard_v1_11_top.v"/>
-      <outfile xil_pn:name="../wfd125-mainfpga/ipcore_dir/s6_gtpwizard_v1_11_tile.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_bit_ctrl.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_byte_ctrl.v"/>
       <outfile xil_pn:name="../wfd125-mainfpga/orpsocv2/rtl/verilog/i2c_master_slave/i2c_master_slave.v"/>
@@ -186,11 +181,12 @@
       <outfile xil_pn:name="spi_wbmaster.v"/>
       <outfile xil_pn:name="sumcalc.v"/>
       <outfile xil_pn:name="testsarb.v"/>
+      <outfile xil_pn:name="timescale.v"/>
       <outfile xil_pn:name="version.vh"/>
       <outfile xil_pn:name="wb_intercon.v"/>
       <outfile xil_pn:name="wb_intercon.vh"/>
     </transform>
-    <transform xil_pn:end_ts="1434404429" xil_pn:in_ck="1495261648405644370" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-6847190515942876803" xil_pn:start_ts="1434404427">
+    <transform xil_pn:end_ts="1434406298" xil_pn:in_ck="3037787750804064429" xil_pn:name="TRAN_ISimulateBehavioralModelRunFuse" xil_pn:prop_ck="-6847190515942876803" xil_pn:start_ts="1434406296">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForInputs"/>
@@ -205,7 +201,7 @@
       <outfile xil_pn:name="testsarb_isim_beh.exe"/>
       <outfile xil_pn:name="xilinxsim.ini"/>
     </transform>
-    <transform xil_pn:end_ts="1434404491" xil_pn:in_ck="-2414215787092435657" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="267377823833659520" xil_pn:start_ts="1434404491">
+    <transform xil_pn:end_ts="1434406299" xil_pn:in_ck="-2414215787092435657" xil_pn:name="TRAN_ISimulateBehavioralModel" xil_pn:prop_ck="267377823833659520" xil_pn:start_ts="1434406298">
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="ReadyToRun"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
@@ -283,6 +279,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="_ngo"/>
       <outfile xil_pn:name="_xmsgs/ngdbuild.xmsgs"/>
@@ -294,6 +291,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="_xmsgs/map.xmsgs"/>
       <outfile xil_pn:name="fpga_chan.pcf"/>
@@ -309,6 +307,7 @@
       <status xil_pn:value="SuccessfullyRun"/>
       <status xil_pn:value="WarningsGenerated"/>
       <status xil_pn:value="ReadyToRun"/>
+      <status xil_pn:value="OutOfDateForInputs"/>
       <status xil_pn:value="OutOfDateForPredecessor"/>
       <outfile xil_pn:name="_xmsgs/par.xmsgs"/>
       <outfile xil_pn:name="fpga_chan.ncd"/>

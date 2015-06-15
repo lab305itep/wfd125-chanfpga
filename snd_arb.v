@@ -97,7 +97,7 @@ module snd_arb #(
 				end
 				ST_CW: begin
 					if (fifohave) begin 
-						arb_want[rr_cnt + 1] <= 1;
+						arb_want[rr_cnt] <= 1;
 						if (datamux[rr_cnt][15]) begin
 							towrite <= datamux[rr_cnt][8:0];
 							state <= ST_COPY;
@@ -109,12 +109,11 @@ module snd_arb #(
 					end
 				end
 				ST_COPY: begin
-					if (towrite == 1) begin
-						arb_want[rr_cnt + 1] <= 1;
+					if (towrite > 1) begin
+						arb_want[rr_cnt] <= 1;
 						towrite <= towrite - 1;
 					end else begin
 						state <= ST_NEXT;
-						arb_want[rr_cnt + 1] <= 1;
 					end
 				end
 			endcase
