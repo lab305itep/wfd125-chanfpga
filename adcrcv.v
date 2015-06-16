@@ -60,7 +60,7 @@ module adcrcv(
 		input 				chk_run		// checking interval, from checkseq
 	);
 	 
-	wire 	[1:0]		CLKIN_s;		// clocks from input buffer (375 MHz)
+	wire 				CLKIN_b;		// clocks from input buffer (375 MHz)
 	wire 	[1:0]		CLKIN_2;		// clocks from BUFIO2_2CLK (375 MHz)
 	wire 	[5:0]		FR_r;			// frame data
 	reg	[5:0]		FR_d;			// frame data delayed 1 CLK
@@ -70,6 +70,11 @@ module adcrcv(
 	reg	[47:0]	DOUT_d;		// ADC data delayed 1 CLK
 	
 	// trigger
+	reg				iodrst;		// IODELAY reset reclocked to CLK
+	reg				halfclk;		// CLK/2 to imitate sertrig transitions on IODELAY reset
+	reg				trigmux;		// select sertrig/halfclk for output
+	reg	[3:0]		hclk_cnt;	// sent 8 halfclk to trigger input on IODELAY reset
+	wire				trigout;		// trigger output to obuf with added clkhalf
 	wire	[1:0]		trig_pins;	// obuf to ibuf trigger connection
 	wire 	[5:0]		TR_r;			// trigger deser data
 	reg	[5:0]		TR_d;			// trigger data delayed 1 CLK
@@ -90,41 +95,6 @@ module adcrcv(
 	 
 
 	// Recieving and processing clocks
-	
-   IBUFGDS_DIFF_OUT #(
-      .DIFF_TERM	("TRUE"),   	// Differential Termination, "TRUE"/"FALSE" 
-      .IOSTANDARD	("LVDS_25") 	// Specify the input I/O standard
-   ) IBUFGDS_DIFF_OUT_inst (
-      .O			(CLKIN_s[0]), 		// Buffer diff_p output
-      .OB		(CLKIN_s[1]),		// Buffer diff_n output
-      .I			(CLKIN[0]), 		// Diff_p buffer input (connect directly to top-level port)
-      .IB		(CLKIN[1])  		// Diff_n buffer input (connect directly to top-level port)
-   );
-
-   BUFIO2_2CLK #(
-      .DIVIDE	(6)  					// DIVCLK divider (3-8)
-   )
-   BUFIO2_2CLK_p (
-      .DIVCLK	(DIVCLK),        	// 1-bit output: Divided clock output
-      .IOCLK	(CLKIN_2[0]),    	// 1-bit output: I/O output clock
-      .SERDESSTROBE	(IOCE), 		// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      .I			(CLKIN_s[0]),     // 1-bit input: Clock input (connect to IBUFG)
-      .IB		(CLKIN_s[1])      // 1-bit input: Secondary clock input
-   );
-
-   BUFIO2_2CLK #(
-      .DIVIDE	(6)  					// DIVCLK divider (3-8)
-   )
-   BUFIO2_2CLK_n (
-      .DIVCLK	(),             	// 1-bit output: Divided clock output
-      .IOCLK	(CLKIN_2[1]),     // 1-bit output: I/O output clock
-      .SERDESSTROBE	(), 			// 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
-      .I			(CLKIN_s[1]),     // 1-bit input: Clock input (connect to IBUFG)
-      .IB		(CLKIN_s[0])      // 1-bit input: Secondary clock input
-   );
-
-/*
-wire CLKIN_b;
 
    IBUFGDS #(
       .DIFF_TERM("TRUE"), // Differential Termination
@@ -160,7 +130,7 @@ wire CLKIN_b;
       .SERDESSTROBE(), // 1-bit output: Output SERDES strobe (connect to ISERDES2/OSERDES2)
       .I(CLKIN_b)                        // 1-bit input: Clock input (connect to IBUFG)
    );
-*/
+
 
 	BUFG BUFG_inst (
       .O			(CLK), 				// 1-bit output: Clock buffer output
@@ -216,13 +186,21 @@ wire CLKIN_b;
    endgenerate
 	
 	// Trigger
+	// mux with wb_clk/2 on IODELAY reset
+	cmux21 trig_mux (
+		.I0	(sertrig),
+		.I1	(halfclk),
+		.S		(trigmux),
+		.O		(trigout)
+	);
+	
 	// translate to ibuf
    OBUFDS #(
       .IOSTANDARD("BLVDS_25") 		// Specify the output I/O standard
    ) OBUFDS_trig (
       .O		(trig_pins[0]),     		// Diff_p output (connect directly to top-level port)
       .OB	(trig_pins[1]),   		// Diff_n output (connect directly to top-level port)
-      .I		(sertrig)      			// Buffer input 
+      .I		(trigout)      			// Buffer input 
    );
 
 	//	recieve trigger
@@ -241,10 +219,26 @@ wire CLKIN_b;
 		.DRST		(csr[10])				// reset command to IODELAY
    );
 
+	// imitate trigger transitions on IODELAY reset
+	always @ (posedge CLK) begin
+		iodrst <= csr[10];
+		if (iodrst) begin
+			hclk_cnt <= 15;
+			trigmux <= 1;
+			halfclk <= 0;
+		end else if (|hclk_cnt) begin
+			hclk_cnt <= hclk_cnt - 1;
+			halfclk <= ~halfclk;
+		end else begin
+			trigmux <= 0;
+			halfclk <= 0;
+		end
+	end
+
 	// generate trigger pulse and encode trigger time
 	always @ (posedge CLK) begin
 		adtrig <= 0;		// default
-		if (~(|TR_d) & (|TR_r)) begin
+		if (~(|TR_d) & (|TR_r) & ~trigmux) begin
 			// previous clock trig at low level, current contains high
 			adtrig <= 1;
 			// data comes MSB first, i.e. latest trigger is the lowest 1
@@ -257,7 +251,6 @@ wire CLKIN_b;
 				6'b111111 : trtime <= 0;	// earliest
 				default   : trtime <= 7;	// error
 			endcase
-			trtime <= TR_r;
 		end
 		TR_d <= TR_r;
 	end

@@ -68,18 +68,12 @@ module prc1chan # (
 		input					inhibit,		// inhibits ONLY self trigger production
 		// arbitter interface for data output
 		input 				give,			// request from arbitter
-		output reg			have,			// acknowledge to arbitter, immediate with give
+		output 				have,			// acknowledge to arbitter, immediate with give
 		output [15:0] 		dout,			// tristate data to arbitter
 		output reg			missed,		// 1 clk pulse when fifo cannot accept data because of full
-		
-		// ???
-		output [4:0] debug,
-		
 		// to sumtrig
 		output reg [15:0] d2sum			// (ADC - pedestal) signed to trigger summation
    );
-
-	assign debug = {trg_clr, tok_got, mtrig, tok_vld, adc_trig};
 
 	// pedestal calculations
 		localparam 					PBITS = 16;			// number of bits in pedestal window counter
@@ -123,6 +117,7 @@ module prc1chan # (
 		reg [FBITS-1:0] 		f_waddr = 0;			// fifo current write address
 		reg [FBITS-1:0] 		f_waddr_s = 0;			// temprary holder for waddr for token out of order writing
 		reg [FBITS-1:0] 		f_raddr = 0;			// fifo current read address
+		wire [FBITS-1:0] 		graddr;					// fifo current read address for data outputs
 		reg [FBITS-1:0] 		f_blkend = 0;			// memorized address of block end or start of currently written block
 		wire [10:0] 			fifo_free;				// number of words availiable for the next block
 		wire						fifo_full;				// fifo cannot accept next block
@@ -341,7 +336,7 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 			// write sequential self trigger number
-				tofifo = {4'h0, blkpar, 1'b0, strig_cnt};
+				tofifo = {4'h0, blkpar, 1'b0, strig_cnt_c};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= str_addr - swinbeg;	// prepare for reading from circular buffer
 				trg_state <= ST_STPED;
@@ -389,35 +384,17 @@ module prc1chan # (
 		// write fifo
 		fifo[f_waddr] <= tofifo;
 		// read fifo
-		f_data <= fifo[f_raddr];
+		f_data <= fifo[graddr];
 		// increment raddr on data outputs
-		have <= 0;
-		if (give & (f_raddr != f_blkend)) begin
+		if (have) begin
 			f_raddr <= f_raddr + 1;
-			have <= 1;
 		end
 	end
 
 	assign dout = f_data;
+	assign have = give & (f_raddr != f_blkend);
+	assign graddr = (have) ? (f_raddr + 1) : f_raddr;
 
-/*
-	reg test_was_trig = 0;
-	reg [8:0] test_cnt = 0;
-	reg [15:0] ddout = 0;
-	
-	assign dout = ddout;
-	
-	always @(posedge clk) begin
-		have <= give & test_was_trig;
-		ddout <= (test_cnt == 0) ? {1'b1, num, blklen} : {1'b0, num, test_cnt};
-		if (test_cnt == blklen) test_was_trig <= 0;
-		if (trg_state == ST_MTRIG) begin
-			test_cnt <= 0;
-			test_was_trig <= 1;
-		end;
-		if (give & test_was_trig) test_cnt <= test_cnt + 1;
-	end
-*/
 //		to total sum -- resync adc data to clk
 	// fill buffer at ADFCCLK
 	always @ (posedge ADCCLK) begin

@@ -401,14 +401,12 @@ wire [79:0] dbg;
 			.have			(fifo_have[i]), 
 			.dout			(d2arb[16*i+15:16*i]), 
 			.missed		(),
-			
-			// ????
-			.debug(dbg[5*i+4:5*i]),
-			
 			// to sumtrig
 			.d2sum		(d2sum[16*i+15:16*i])
 		);
+		
 		assign adc_ped[16*i+15:16*i+12] = 0;
+		
 		end
 	endgenerate
 
@@ -425,9 +423,7 @@ wire [79:0] dbg;
 		.fifo_have		(fifo_have),
 		.datain			(d2arb),
 		// trigger from summing to be sent to main
-//		.trig				(sum_trig),
-		.trig				(1'b0),
-.debug (TP[5:1]),
+		.trig				(sum_trig),
 		// GTP data for sending
 		.dataout			(gtp_data_i[15:0]),
 		.kchar			(gtp_comma_i[0])
@@ -436,8 +432,9 @@ wire [79:0] dbg;
 //		Summa and trigger
 	wire [15:0] sum2gtp;
 	wire comma2gtp;
-	assign gtp_data_i[63:16] = {sum2gtp, sum2gtp, sum2gtp};
-	assign gtp_comma_i[3:1] = {comma2gtp, comma2gtp, comma2gtp};
+	assign gtp_data_i[63:16] = {{3{sum2gtp}}};
+	assign gtp_comma_i[3:1] = {{3{comma2gtp}}};
+	
 	sumcalc #(.XDELAY(7)) USCALC (
 		.clk(CLK125),						// master clock
 		.data(d2sum),						// input data
