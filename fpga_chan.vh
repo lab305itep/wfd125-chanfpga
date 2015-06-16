@@ -1,13 +1,14 @@
 //	Parameter register addresses
-localparam PAR_SMASK = 0;  // summ mask
-localparam PAR_TMASK = 1;  // trigger mask
-localparam PAR_STMASK = 2; // selftrigger mask
-localparam PAR_STHR = 3;	// summ send threshold (for the summ of 16 channels)
-localparam PAR_ZTHR = 4; 	// data send threshold - master trigger zero suppression
-localparam PAR_STTHR = 5; 	// self trigger threshold
-localparam PAR_MTTHR = 6; 	// 64-channels sum trigger threshold (main trigger)
-localparam PAR_STPRC = 7;	// selftrigger prescale
-localparam PAR_WINLEN = 8; // window length
-localparam PAR_MWINBEG = 9;	// master trigger window begin
-localparam PAR_SWINBEG = 10; // self trigger window begin
-localparam PAR_INVMASK = 11; // mask for waveform inversion
+localparam PAR_MTMASK = 	0;		// master trigger mask
+localparam PAR_STMASK = 	1; 	// selftrigger mask
+localparam PAR_SUMASK = 	2;  	// summ mask
+localparam PAR_INVMASK = 	3; 	// mask for waveform inversion
+localparam PAR_MTTHR = 		4; 	// data send threshold - master trigger zero suppression
+localparam PAR_STTHR = 		5; 	// self trigger threshold
+localparam PAR_SUTHR = 		6; 	// 64-channels sum trigger threshold (main trigger)
+localparam PAR_STPRC = 		7;		// selftrigger prescale
+localparam PAR_WINLEN = 	8; 	// window length for both triggers and trigger history
+localparam PAR_MTWINBEG = 	9;		// master trigger window begin
+localparam PAR_STWINBEG = 	10; 	// self trigger window begin
+localparam PAR_SUWINBEG = 	11; 	// trigger history window begin
+localparam PAR_SUDELAY =	12;	// delay of local sum for adding to other X's

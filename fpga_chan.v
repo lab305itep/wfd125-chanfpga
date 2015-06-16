@@ -375,14 +375,14 @@ wire [79:0] dbg;
 			.ADCCLK		(ADCCLK[i/4]),
 			.ADCDAT		(ADCDAT[12*i+11:12*i]), 
 			// data processing programmable parameters
-			.zthr			(par_array[PAR_ZTHR*16+11:PAR_ZTHR*16]), 
+			.zthr			(par_array[PAR_MTTHR*16+11:PAR_MTTHR*16]), 
 			.sthr			(par_array[PAR_STTHR*16+11:PAR_STTHR*16]), 
 			.prescale	(par_array[PAR_STPRC*16+15:PAR_STPRC*16]), 
-			.mwinbeg		(par_array[PAR_MWINBEG*16+9:PAR_MWINBEG*16]), 
-			.swinbeg		(par_array[PAR_SWINBEG*16+9:PAR_SWINBEG*16]), 
+			.mwinbeg		(par_array[PAR_MTWINBEG*16+9:PAR_MTWINBEG*16]), 
+			.swinbeg		(par_array[PAR_STWINBEG*16+9:PAR_STWINBEG*16]), 
 			.winlen		(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 
-			.smask		(par_array[PAR_SMASK*16+i]), 
-			.tmask		(par_array[PAR_TMASK*16+i]), 
+			.smask		(par_array[PAR_SUMASK*16+i]), 
+			.tmask		(par_array[PAR_MTMASK*16+i]), 
 			.stmask		(par_array[PAR_STMASK*16+i]),
 			.invert		(par_array[PAR_INVMASK*16+i]),
 			.raw			(CSR[15]),
@@ -436,15 +436,23 @@ wire [79:0] dbg;
 	assign gtp_comma_i[3:1] = {{3{comma2gtp}}};
 	
 	sumcalc #(.XDELAY(7)) USCALC (
-		.clk(CLK125),						// master clock
-		.data(d2sum),						// input data
-		.sumdata(gtp_data_o[63:16]),	// sums from 3 other xilinxes
-		.xcomma(gtp_comma_o[3:1]),		// commas from other xilinxes
-		.sumres(sum2gtp),					// 16-channel sum
-		.sumcomma(comma2gtp),			// comma / data
-		.s16thr(par_array[PAR_STHR*16+15:PAR_STHR*16]),		// 16-channel sum threshold
-		.s64thr(par_array[PAR_MTTHR*16+15:PAR_MTTHR*16]),	// 64-channel sum threshold
-		.trigout(sum_trig)				// 64-channel trigger
+		.clk				(CLK125),												// master clock
+		.data				(d2sum),													// input data from channels
+		// communication to other X's
+		.xdata			(gtp_data_o[63:16]),									// sums from 3 other xilinxes
+		.xcomma			(gtp_comma_o[3:1]),									// commas from other xilinxes
+		.sumres			(sum2gtp),												// 16-channel sum to other X's
+		.sumcomma		(comma2gtp),											// comma / data to other X's
+		// programmable parameters
+		.s64thr			(par_array[PAR_SUTHR*16+15:PAR_SUTHR*16]),	// 64-channel sum threshold
+		.xdelay			(par_array[PAR_XDELAY*16+3:PAR_XDELAY*16]),	// delay of local sum to be added to other X's
+		.winbeg			(par_array[PAR_SUWINBEG*16+9:PAR_SUWINBEG*16]),	// trigger history window begin
+		.winlen			(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 	// trigger history window length
+		// communication to sending arbitter
+		.give				(arb_want[16]), 										// arbitter wants history data
+		.have				(fifo_have[16]), 										// history data ready
+		.dout				(d2arb[271:256]), 									// history data to arbitter
+		.trigout			(sum_trig)												// 64-channel trigger to be transmitted by arbitter
    );
 
 //		Pattern check sequencer
