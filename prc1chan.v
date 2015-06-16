@@ -103,12 +103,16 @@ module prc1chan # (
 	// self trigger & prescale 
 		reg 						discr = 0;				// signal above selftrigger threshold
 		reg 						strig = 0;				// self trigger
+		reg						strig_c = 0;			// self trigger reclocked to clk
 		reg [9:0]				strig_cnt = 0;			// self trigger counter after prescale
+		reg [9:0]				strig_cnt_c = 0;		// self trigger counter after prescale reclocked to clk
 		reg [15:0] 				presc_cnt = 0;			// selftrigger prescale counter
 	
 	// master trigger
 		reg						mtrig = 0;				// master trigger
-		reg [2:0]				tr_time = 0;			// high resoultion trigger time	
+		reg						mtrig_c = 0;			// master trigger reclocked to clk
+		reg [2:0]				tr_time = 0;			// high resoultion trigger time
+		reg [2:0]				tr_time_c = 0;			// high resoultion trigger time recdlocked to clk
 		reg						tok_got = 0;			// token accepted for this mtrig
 		reg [10:0]				tr_tok = 0;				// memorized token with error
 		
@@ -140,6 +144,7 @@ module prc1chan # (
 		reg 						zflag = 0;				// flag to apply zero suppression to the current block
 		reg						blkpar = 0;				// sequential parity of any sent block
 		reg						trg_clr;					// flag to indicate end of trigger block writing
+		reg						trg_clr_a;				// flag to indicate end of trigger block writing reclocked to ADCCLK
 
 	// 4 word circular buffer to resync ADC data (ped subtracted) to clk for trigger sum calculations
 		reg [15:0] 			d2sumfifo [3:0];			//	buffer itself
@@ -188,6 +193,11 @@ module prc1chan # (
 		cb_data <= cbuf[cb_raddr];
 	end
 
+// reclock trigger end
+	always @ (posedge ADCCLK) begin
+		trg_clr_a <= trg_clr;
+	end
+
 //		self trigger & prescale 
 	always @ (posedge ADCCLK) begin
 		if (~stmask & ~raw & ~inhibit) begin
@@ -210,7 +220,7 @@ module prc1chan # (
 				// HALF threshold crossed back (noise reduction)
 				discr <= 0;
 				// finish with trigger on command from state machine
-				if (trg_clr) strig <= 0;
+				if (trg_clr_a) strig <= 0;
 			end 
 		end else begin
 			strig <= 0;
@@ -224,14 +234,14 @@ module prc1chan # (
 			mtrig <= 1;
 			mtr_addr <= cb_waddr;
 			tr_time <= trig_time;
-		end else if (trg_clr) begin
+		end else if (trg_clr_a) begin
 			// finish with trigger on command from state machine after token is accepted
 			mtrig <= 0;
 		end
 	end
 	// process token from GTP (appears later than all adc_trig's)
 	always @ (posedge clk) begin
-		if (mtrig) begin
+		if (mtrig_c) begin
 			// catch token from GTP
 			if (tok_vld) begin
 				tok_got <= 1;
@@ -253,10 +263,14 @@ module prc1chan # (
 		missed <= 0;		// default
 		blklen <= winlen + 2;	// relatch for better timing
 		tofifo = 0;
+		mtrig_c <= mtrig;				// reclock master trigger
+		strig_c <= strig;				// reclock self trigger
+		tr_time_c <= tr_time;		// reclock trigger time
+		strig_cnt_c <= strig_cnt;	// reclock self trigger number
 //		state machine
 		case (trg_state) 
 		ST_IDLE: begin 
-			if (mtrig | strig) begin
+			if (mtrig_c | strig_c) begin
 				if (~fifo_full) begin
 					// write nothing on zero winlen
 					if (~|winlen) begin
@@ -266,7 +280,7 @@ module prc1chan # (
 						tofifo = {1'b1, num, blklen};
 						f_waddr <= f_waddr + 1;
 						to_copy <= winlen;
-						if (mtrig) begin		// master trigger has priority
+						if (mtrig_c) begin		// master trigger has priority
 							trg_state <= ST_MTRIG;
 						end else	begin // strig
 							trg_state <= ST_STRIG;
@@ -287,7 +301,7 @@ module prc1chan # (
 		end
 		ST_MTIME: begin
 			// write high resolution time
-			tofifo = {13'h0000, tr_time};
+			tofifo = {13'h0000, tr_time_c};
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
 			zflag <= ~raw;							// set zero suppression flag (no zero suppression in raw mode)
@@ -321,7 +335,7 @@ module prc1chan # (
 			end
 		end
 		ST_STRIG: begin
-			if (mtrig) begin
+			if (mtrig_c) begin
 			// enforce master trigger priority
 				f_waddr <= f_blkend;
 				trg_state <= ST_IDLE;
@@ -334,7 +348,7 @@ module prc1chan # (
 			end
 		end
 		ST_STPED: begin
-			if (mtrig) begin
+			if (mtrig_c) begin
 			// enforce master trigger priority
 				f_waddr <= f_blkend;
 				trg_state <= ST_IDLE;
@@ -347,7 +361,7 @@ module prc1chan # (
 			end
 		end
 		ST_STCOPY: begin
-			if (mtrig) begin
+			if (mtrig_c) begin
 			// enforce master trigger priority
 				f_waddr <= f_blkend;
 				trg_state <= ST_IDLE;
@@ -366,7 +380,7 @@ module prc1chan # (
 		end
 		ST_TRGCLR: begin
 			trg_clr <= 1;
-			if (~mtrig & ~strig)
+			if (~mtrig_c & ~strig_c)
 				trg_state <= ST_IDLE;
 		end
 		default: trg_state <= ST_IDLE;
@@ -377,16 +391,16 @@ module prc1chan # (
 		// read fifo
 		f_data <= fifo[f_raddr];
 		// increment raddr on data outputs
-//		have <= 0;
+		have <= 0;
 		if (give & (f_raddr != f_blkend)) begin
 			f_raddr <= f_raddr + 1;
-//			have <= 1;
+			have <= 1;
 		end
 	end
 
-//	assign dout = f_data;
+	assign dout = f_data;
 
-
+/*
 	reg test_was_trig = 0;
 	reg [8:0] test_cnt = 0;
 	reg [15:0] ddout = 0;
@@ -403,7 +417,7 @@ module prc1chan # (
 		end;
 		if (give & test_was_trig) test_cnt <= test_cnt + 1;
 	end
-
+*/
 //		to total sum -- resync adc data to clk
 	// fill buffer at ADFCCLK
 	always @ (posedge ADCCLK) begin
