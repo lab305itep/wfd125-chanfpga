@@ -33,6 +33,7 @@
 //	3:0 - pattern for ADC receiver checks
 //	6:4 - counter max = 2**(16 + 2*CSR[6:4]) for ADC receiver checks
 //	7   - check start - edge sensitive  (ready on read)
+// 14  - enable sum64 history block on master trigger
 // 15  - raw mode: no selftrigger, nothing to sumcalc, raw data blocks on master trigger 
 //`
 //		Array registers:
@@ -116,27 +117,28 @@ module fpga_chan(
 	assign	AFRM = {AFD, AFC, AFB, AFA};
 	assign	ADAT = {ADD, ADC, ADB, ADA};
 
-	wire 					CLK125;				//	GTP reciever clock = system clock
+	wire 				CLK125;				//	GTP reciever clock = system clock
 	wire 	[3:0] 		ADCCLK;				//	clocks accompanying ADC deserialized data
-	wire 	[191:0] 		ADCDAT;				// deserialized data from ADC
-	wire 	[63:0]  		gtp_data_i;			// data to GTP
-	wire 	[3:0]   		gtp_comma_i;		// k-char signature to GTP
-	wire 	[63:0]  		gtp_data_o; 		// data ftom GTP
-	wire 	[3:0]   		gtp_comma_o;		// k-char signature from GTP
-	wire [31:0]  		CSR;					// command and status register
-	wire 					seq_enable;			// check enable (check interval)
+	wire 	[191:0] 	ADCDAT;				// deserialized data from ADC
+	wire 	[63:0]  	gtp_data_i;			// data to GTP
+	wire 	[3:0]   	gtp_comma_i;		// k-char signature to GTP
+	wire 	[63:0]  	gtp_data_o; 		// data ftom GTP
+	wire 	[3:0]   	gtp_comma_o;		// k-char signature from GTP
+	wire [31:0]  		CSR;				// command and status register
+	wire 				seq_enable;			// check enable (check interval)
 	
-	wire [16*NFIFO-1:0]  		d2arb;				// data from channel fifo's to sending arbitter
-	wire [NFIFO-1:0]  arb_want;			// arbitter data request to fifo's
+	wire [16*NFIFO-1:0] d2arb;				// data from channel fifo's to sending arbitter
+	wire [NFIFO-1:0]  arb_want;				// arbitter data request to fifo's
 	wire [NFIFO-1:0] 	fifo_have;			// fifo's reply to arbitter if they have data
 
-	wire 					sertrig;				// serial trigger as accepted from ICX[1:0]
+	wire 				sertrig;			// serial trigger as accepted from ICX[1:0]
 	wire [3:0]			adc_trig;			// master trigger pulse on certain ADC CLK
 	wire [11:0]			trig_time;			// 3 bit high resolution trigger time valid with proper adc_trig
 
-	wire [255:0]  	par_array;
-	wire [255:0]  	d2sum;
-	wire [255:0]  	adc_ped;
+	wire [255:0]  		par_array;
+	wire [255:0]		coef_array;
+	wire [255:0]  		d2sum;
+	wire [255:0]  		adc_ped;
 	wire 				sum_trig;
 	
 
@@ -308,6 +310,22 @@ module fpga_chan(
 	assign wb_s2m_reg_array_rty = 0;
 	assign wb_s2m_reg_array_dat[31:16] = 16'h0000;
 
+//		coefficients array
+	parreg16 #(.ADRBITS(4)) coef_array (
+		.wb_clk    (wb_clk), 
+		.wb_adr    (wb_m2s_coef_array_adr[5:2]), 
+		.wb_dat_i  (wb_m2s_coef_array_dat[15:0]), 
+		.wb_dat_o  (wb_s2m_coef_array_dat[15:0]),
+		.wb_we     (wb_m2s_coef_array_we),
+		.wb_stb    (wb_m2s_coef_array_stb),
+		.wb_cyc    (wb_m2s_coef_array_cyc), 
+		.wb_ack    (wb_s2m_coef_array_ack), 
+		.reg_o	   (coef_array)
+	);
+	assign wb_s2m_coef_array_err = 0;
+	assign wb_s2m_coef_array_rty = 0;
+	assign wb_s2m_coef_array_dat[31:16] = 16'h0000;
+
 //		input array for pedestals
 	inpreg16 #(.ADRBITS(4)) ped_array (
 		.wb_clk    (wb_clk), 
@@ -403,10 +421,8 @@ wire [79:0] dbg;
 			.missed		(),
 			// to sumtrig
 			.d2sum		(d2sum[16*i+15:16*i])
-		);
-		
+		);		
 		assign adc_ped[16*i+15:16*i+12] = 0;
-		
 		end
 	endgenerate
 
@@ -417,15 +433,15 @@ wire [79:0] dbg;
 	snd_arb  # (
 		.NFIFO			(NFIFO)
 		) UARB (
-		.clk				(CLK125),
+		.clk			(CLK125),
 		// fifo control and data
 		.arb_want		(arb_want),
 		.fifo_have		(fifo_have),
 		.datain			(d2arb),
 		// trigger from summing to be sent to main
-		.trig				(sum_trig),
+		.trig			(sum_trig),
 		// GTP data for sending
-		.dataout			(gtp_data_i[15:0]),
+		.dataout		(gtp_data_i[15:0]),
 		.kchar			(gtp_comma_i[0])
    );
 
@@ -435,24 +451,31 @@ wire [79:0] dbg;
 	assign gtp_data_i[63:16] = {{3{sum2gtp}}};
 	assign gtp_comma_i[3:1] = {{3{comma2gtp}}};
 	
-	sumcalc #(.XDELAY(7)) USCALC (
-		.clk				(CLK125),												// master clock
-		.data				(d2sum),													// input data from channels
+	sumcalc USCALC (
+		.clk			(CLK125),											// master clock
+		.data			(d2sum),											// input data from channels
 		// communication to other X's
-		.xdata			(gtp_data_o[63:16]),									// sums from 3 other xilinxes
+		.xdata			(gtp_data_o[63:16]),								// sums from 3 other xilinxes
 		.xcomma			(gtp_comma_o[3:1]),									// commas from other xilinxes
-		.sumres			(sum2gtp),												// 16-channel sum to other X's
-		.sumcomma		(comma2gtp),											// comma / data to other X's
+		.sumres			(sum2gtp),											// 16-channel sum to other X's
+		.sumcomma		(comma2gtp),										// comma / data to other X's
 		// programmable parameters
-		.s64thr			(par_array[PAR_SUTHR*16+15:PAR_SUTHR*16]),	// 64-channel sum threshold
-		.xdelay			(par_array[PAR_XDELAY*16+3:PAR_XDELAY*16]),	// delay of local sum to be added to other X's
-		.winbeg			(par_array[PAR_SUWINBEG*16+9:PAR_SUWINBEG*16]),	// trigger history window begin
-		.winlen			(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 	// trigger history window length
+		.s64thr			(par_array[PAR_SUTHR*16+15:PAR_SUTHR*16]),			// 64-channel sum threshold
+		.xdelay			(par_array[PAR_XDELAY*16+3:PAR_XDELAY*16]),			// delay of local sum to be added to other X's
+		.winbeg			(par_array[PAR_SUWINBEG*16+9:PAR_SUWINBEG*16]),		// trigger history window begin
+		.winlen			(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 		// trigger history window length
+		.coef			(coef_array),										// per channel coefficients for trigger
 		// communication to sending arbitter
-		.give				(arb_want[16]), 										// arbitter wants history data
-		.have				(fifo_have[16]), 										// history data ready
-		.dout				(d2arb[271:256]), 									// history data to arbitter
-		.trigout			(sum_trig)												// 64-channel trigger to be transmitted by arbitter
+		.give			(arb_want[16]), 									// arbitter wants history data
+		.have			(fifo_have[16]),									// history data ready
+		.dout			(d2arb[271:256]),									// history data to arbitter
+		.trigout		(sum_trig),											// 64-channel trigger to be transmitted by arbitter
+		// Master trigger
+		.token			(gtp_data_o[15:0]),									// trigger token
+		.tok_vld		(~gtp_comma_o[0]),									// token valid
+		.mtrig			(sertrig),											// master trigger
+		.menable		(CSR[14]),											// enable history block
+		.num			(CHN)												// Xilinx number
    );
 
 //		Pattern check sequencer
