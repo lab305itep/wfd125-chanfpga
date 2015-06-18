@@ -36,16 +36,17 @@ module sumcalc # (
 		input [CBITS-1:0]	winbeg,		// trigger history window begin
 		input [8:0]			winlen,		// trigger history window length
 		// communication to sending arbitter
-		input				give,		// arbitter wants history data
+		input					give,		// arbitter wants history data
 		output				have,		// history data ready
 		output [15:0]		dout,		// history data to arbitter
-		output reg 			trigout,	// 64-channel trigger
+		output 				missed,		// history fifo is full and missed a trigger
 		// master trigger
-		input				mtrig,		// master tirgger input
-		input				menable,	// master trigger data block enable
+		output reg 			trigout,	// 64-channel trigger to main
+		input					mtrig,		// master serial tirgger input
+		input					menable,	// master trigger data block enable
 		input [15:0]		token,		// trigger token
-		input				tok_vld,	// token valid
-		input				num			// Xilinx number
+		input					tok_vld,	// token valid
+		input					num			// Xilinx number
    );
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
@@ -132,6 +133,7 @@ module sumcalc # (
 		.menable	(menable),	// master trigger data block enable
 		.token		(token),	// trigger token
 		.tok_vld	(tok_vld),	// token valid
-		.num		(num)		// Xilinx number
+		.num		(num),		// Xilinx number
+		.missed		(missed)	// history fifo is full and missed a trigger
 	);
 endmodule

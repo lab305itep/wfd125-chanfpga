@@ -20,12 +20,13 @@
 //////////////////////////////////////////////////////////////////////////////////
 module sum16(
     input [255:0] din,
-    output reg signed [15:0] sum,
+    output signed [15:0] sum,
     input clk
     );
 
-	wire signed [15:0] term [3:0];
-	reg signed [15:0] s4 [1:0];
+	wire signed [15:0] term [15:0];
+	reg signed [17:0] s4 [3:0];
+	reg signed [19:0] s16;
 	
 	genvar i;
 	generate
@@ -37,7 +38,9 @@ module sum16(
 	integer j;
 	always @(posedge clk) begin
 		for (j=0; j<4; j = j + 1) s4[j] <= term[4*j] + term[4*j+1] + term[4*j+2] + term[4*j+3];
-		sum <= s4[0] + s4[1] + s4[2] + s4[3];
+		s16 <= s4[0] + s4[1] + s4[2] + s4[3];
 	end
+	
+	assign sum = s16[18:3];	// strip 2 bits right to the decimal point and 1 bit for the sign
 
 endmodule

@@ -19,40 +19,43 @@
 module snd_arb #(
 		parameter					NFIFO =17
 		) (
-		input							clk,
+		input							clk,			// gtp clock
 		// fifo control and data
-		output reg [NFIFO-1:0]	arb_want,
-		input [NFIFO-1:0]			fifo_have,
-		input	[NFIFO*16-1:0]		datain,
+//		output reg [NFIFO-1:0]	arb_want,	// arbitter wants data from one of the fifos
+		output [NFIFO-1:0]		arb_want,	// arbitter wants data from one of the fifos
+		input [NFIFO-1:0]			fifo_have,	// fifo reply to arb_want, asyncronous
+		input	[NFIFO*16-1:0]		datain,		// data, valid with fifo_have
+		// fifo errors
+		output reg					err_undr,	// underrun error -- CW accepted earlier than expected
+		output reg					err_ovr,		// overrun error -- CW accepted later than expected
 		// trigger from summing to be sent to main
-		input							trig,
+		input							trig,		// 1 clk pulse to propagate formed trigger to main
 		// GTP data for sending
-		output reg [15:0]			dataout,
+		output reg [15:0]			dataout,	
 		output reg					kchar
 		);
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
 	localparam  CH_TRIG  = 16'h801C;		// K-character K28.0
 
-	reg [4:0]			rr_cnt = 0;			// counter for Round Robbin arbitration
-	wire 					fifohave;			// OR of dvalids from fifos, actually have from currently selected fifo
-	reg [8:0]			towrite = 0;		// number of words in block to write
-	wire					nextf;				// force increment of RR counter (after block is fully read)
-	reg					err_undr;			// underrun error -- CW accepted earlier than expected
-	reg					err_ovr;				// overrun error -- CW accepted later than expected
-	wire [15:0]		   datamux [NFIFO-1:0];
+	reg [4:0]		rr_cnt = 0;			// counter for Round Robbin arbitration
+	wire 				fifohave;			// OR of dvalids from fifos, actually have from currently selected fifo
+	reg [8:0]		towrite = 0;		// number of words in block to write
+	wire				nextf;				// force increment of RR counter (after block is fully read)
+	wire [15:0]		datamux [NFIFO-1:0];
 
 	genvar i;
    generate
       for (i=0; i<NFIFO; i=i+1) 
       begin: gwant
 			assign datamux[i] = datain[16*i +:16];
+			assign arb_want[i] = (rr_cnt == i) & ~trig;
       end
    endgenerate
 
 	// RR arbitration
 	assign	fifohave = |fifo_have;
-	assign	nextf = (towrite == 1);
+	assign	nextf = (towrite == 1) & ~trig;
 
 	always @ (posedge clk) begin
 		err_undr <= 0;
@@ -66,10 +69,10 @@ module snd_arb #(
 			if (~fifohave | nextf) begin
 				if (rr_cnt == NFIFO-1) begin
 					rr_cnt <= 0;
-					arb_want <= 1;
+//					arb_want <= 1;
 				end else begin
 					rr_cnt <= rr_cnt + 1;
-					arb_want <= {arb_want[NFIFO-2:0], 1'b0};
+//					arb_want <= {arb_want[NFIFO-2:0], 1'b0};
 				end
 			end
 			// send data or comma

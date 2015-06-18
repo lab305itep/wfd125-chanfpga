@@ -29,9 +29,9 @@ module normmult(
 	wire signed [17:0] termc;
 	reg signed [35:0] product;
 	
-	assign termd = {din[15], din[15], din};
-	assign termc = {2'b00, coef};
-	assign dout = product[30:15];
+	assign termd = {din[15], din[15], din};		// ??? 5 extra birs
+	assign termc = {2'b00, coef};				// 2 extra bits
+	assign dout = product[28:13]; 				// We take here 2 bits right to the fixed point
 	
 	always @(posedge clk) product <= termd * termc;
 

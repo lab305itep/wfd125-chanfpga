@@ -20,12 +20,12 @@
 //////////////////////////////////////////////////////////////////////////////////
 module xdelay #(
 		parameter		DBITS		= 5	// number of bits in delay line addr
-	)(
-    input [15:0] din,
-    output reg [15:0] dout,
-    input clk,
-    input [DBITS-1:0] xdelay
-    );
+		)(
+		input [15:0] din,
+		output reg [15:0] dout,
+		input clk,
+		input [DBITS-1:0] xdelay
+		);
 	
 	reg [15:0] 				dbuf [2**DBITS-1:0];	// buffer itself
 	reg [DBITS-1:0]			db_waddr = 0;			// write address	

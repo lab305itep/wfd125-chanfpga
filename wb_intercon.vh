@@ -39,6 +39,19 @@ wire        wb_s2m_reg_ver_ack;
 wire        wb_s2m_reg_ver_err;
 wire        wb_s2m_reg_ver_stall;
 wire        wb_s2m_reg_ver_rty;
+wire [31:0] wb_m2s_reg_err_adr;
+wire [31:0] wb_m2s_reg_err_dat;
+wire  [3:0] wb_m2s_reg_err_sel;
+wire        wb_m2s_reg_err_we;
+wire        wb_m2s_reg_err_cyc;
+wire        wb_m2s_reg_err_stb;
+wire  [2:0] wb_m2s_reg_err_cti;
+wire  [1:0] wb_m2s_reg_err_bte;
+wire [31:0] wb_s2m_reg_err_dat;
+wire        wb_s2m_reg_err_ack;
+wire        wb_s2m_reg_err_err;
+wire        wb_s2m_reg_err_stall;
+wire        wb_s2m_reg_err_rty;
 wire [31:0] wb_m2s_adc_spi_adr;
 wire [31:0] wb_m2s_adc_spi_dat;
 wire  [3:0] wb_m2s_adc_spi_sel;
@@ -160,6 +173,19 @@ wb_intercon wb_intercon0
     .wb_reg_ver_err_i      (wb_s2m_reg_ver_err),
     .wb_reg_ver_stall_i    (wb_s2m_reg_ver_stall),
     .wb_reg_ver_rty_i      (wb_s2m_reg_ver_rty),
+    .wb_reg_err_adr_o      (wb_m2s_reg_err_adr),
+    .wb_reg_err_dat_o      (wb_m2s_reg_err_dat),
+    .wb_reg_err_sel_o      (wb_m2s_reg_err_sel),
+    .wb_reg_err_we_o       (wb_m2s_reg_err_we),
+    .wb_reg_err_cyc_o      (wb_m2s_reg_err_cyc),
+    .wb_reg_err_stb_o      (wb_m2s_reg_err_stb),
+    .wb_reg_err_cti_o      (wb_m2s_reg_err_cti),
+    .wb_reg_err_bte_o      (wb_m2s_reg_err_bte),
+    .wb_reg_err_dat_i      (wb_s2m_reg_err_dat),
+    .wb_reg_err_ack_i      (wb_s2m_reg_err_ack),
+    .wb_reg_err_err_i      (wb_s2m_reg_err_err),
+    .wb_reg_err_stall_i    (wb_s2m_reg_err_stall),
+    .wb_reg_err_rty_i      (wb_s2m_reg_err_rty),
     .wb_adc_spi_adr_o      (wb_m2s_adc_spi_adr),
     .wb_adc_spi_dat_o      (wb_m2s_adc_spi_dat),
     .wb_adc_spi_sel_o      (wb_m2s_adc_spi_sel),

@@ -50,6 +50,8 @@ module prc1chan # (
 		input [CBITS-1:0]	mwinbeg,		// window begin relative to the master trigger (10 bits)
 		input [CBITS-1:0]	swinbeg,		// self trigger window begin relative to sthr crossing (10 bits)
 		input [8:0] 		winlen,		// window length (9 bits, but not greater than 509)
+		input [8:0] 		zbeg,			// relative shift of zero suppression sensitive window begin
+		input [8:0] 		zend,			// relative shift of zero suppression sensitive window end
 		input 				smask,		// 1 bit mask for sum
 		input 				tmask,		// 1 bit mask for trigger
 		input 				stmask,		// 1 bit mask for self trigger
@@ -308,7 +310,9 @@ module prc1chan # (
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;
 			to_copy <= to_copy - 1;
-			if ($signed(cb_data) > $signed({1'b0, zthr})) zflag <= 0;	// remove ZS flag if signal is above threshold
+			if (($signed(cb_data) > $signed({1'b0, zthr})) 
+				& (winlen - to_copy >= zbeg) 
+				& (winlen - to_copy < zend)) zflag <= 0;	// remove ZS flag if signal is above threshold
 			if (to_copy == 1)	begin
 				f_waddr <= f_blkend + 1;			// prepare waddr for token writing
 				f_waddr_s <= f_waddr + 1;			// save next waddr for further restoration
