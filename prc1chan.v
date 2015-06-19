@@ -252,7 +252,7 @@ module prc1chan # (
 
 //		block writing on triggers with state machine
 	assign 	fifo_free = f_raddr - f_blkend;
-	assign 	fifo_full = (fifo_free < (winlen + 3)) & (|fifo_free);
+	assign 	fifo_full = (fifo_free < (winlen + 3)) & (fifo_free != 0);
 
 	// state machine
 	always @ (posedge clk) begin

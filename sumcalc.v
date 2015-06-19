@@ -22,9 +22,9 @@ module sumcalc # (
 		parameter		FBITS		= 11	// number of bits in output fifo addr
 	)
 	(
-		input 				clk,		// master clock
-		input [255:0] 		data,		// input data from local channels clk timed
-		input [255:0]		coef,		// per channel coefficients for trigger
+		input 				clk,			// master clock
+		input [255:0] 		data,			// input data from local channels clk timed
+		input [255:0]		coef,			// per channel coefficients for trigger
 		// communication to other X's
 		input [47:0] 		xdata,		// sums from 3 other xilinxes
 		input [2:0]  		xcomma,		// commas from other xilinxes
@@ -36,29 +36,29 @@ module sumcalc # (
 		input [CBITS-1:0]	winbeg,		// trigger history window begin
 		input [8:0]			winlen,		// trigger history window length
 		// communication to sending arbitter
-		input					give,		// arbitter wants history data
-		output				have,		// history data ready
-		output [15:0]		dout,		// history data to arbitter
+		input					give,			// arbitter wants history data
+		output				have,			// history data ready
+		output [15:0]		dout,			// history data to arbitter
 		output 				missed,		// history fifo is full and missed a trigger
 		// master trigger
-		output reg 			trigout,	// 64-channel trigger to main
+		output reg 			trigout,		// 64-channel trigger to main
 		input					mtrig,		// master serial tirgger input
-		input					menable,	// master trigger data block enable
+		input					menable,		// master trigger data block enable
 		input [15:0]		token,		// trigger token
-		input					tok_vld,	// token valid
-		input					num			// Xilinx number
+		input					tok_vld,		// token valid
+		input	[1:0]			num			// Xilinx number
    );
 
 	localparam	CH_COMMA = 16'h00BC;		// comma K28.5
 
 	// local sum
-	wire signed [15:0] 	sum16;			// full local sum
+	wire signed [15:0] 	sum16;		// full local sum
 	wire signed [15:0] 	db_data;		// full local sum delayed
 	wire [255:0]		datac;			// corrected data
 	
 	// master trigger 
-	reg signed [17:0]		sum64;					// sum of 4 X's
-	reg 					trigout_s;				// sum above threshold
+	reg signed [17:0]		sum64;		// sum of 4 X's
+	reg 					trigout_s;		// sum above threshold
 
 //		Amplification correction
 	genvar i;

@@ -55,7 +55,7 @@ module snd_arb #(
 
 	// RR arbitration
 	assign	fifohave = |fifo_have;
-	assign	nextf = (towrite == 1) & ~trig;
+	assign	nextf = ((towrite == 2) & ~kchar) | ((towrite == 1) & kchar);
 
 	always @ (posedge clk) begin
 		err_undr <= 0;
@@ -66,13 +66,11 @@ module snd_arb #(
 			kchar <= 1;
 		end else begin
 			// advance round robbin counter
-			if (~fifohave | nextf) begin
+			if ((~fifohave) | nextf) begin
 				if (rr_cnt == NFIFO-1) begin
 					rr_cnt <= 0;
-//					arb_want <= 1;
 				end else begin
 					rr_cnt <= rr_cnt + 1;
-//					arb_want <= {arb_want[NFIFO-2:0], 1'b0};
 				end
 			end
 			// send data or comma
@@ -80,23 +78,28 @@ module snd_arb #(
 				// send data if we have any
 				dataout <= datamux[rr_cnt];
 				kchar <= 0;
-				// check block structure
-				if (datamux[rr_cnt][15]) begin
-					// this is CW
-					towrite <= datamux[rr_cnt][8:0];		// number of words to write -1
-					if (|towrite) begin
-						err_undr <= 1;				// must accept next CW with towrite=0, otherwize it's too early
-					end
-				end else begin
-					if (|towrite) towrite <= towrite - 1;
-					else err_ovr <= 1;			// must have accepted CW with towrite=0, otherwize it's too late
-				end
 			end else begin
 				// send comma if no data
 				dataout <= CH_COMMA;
 				kchar <= 1;
 			end
 		end
+		
+		// check block structure
+		if (~kchar) begin
+			// this is valid data, not comma and not trigger
+			if (dataout[15]) begin
+				// this is CW
+				towrite <= dataout[8:0];		// number of words to write -1
+				if (|towrite) begin
+					err_undr <= 1;				// must accept next CW with towrite=0, otherwize it's too early
+				end
+			end else begin
+				if (|towrite) towrite <= towrite - 1;
+				else err_ovr <= 1;			// must have accepted CW with towrite=0, otherwize it's too late
+			end
+		end
+		
 	end
 
 endmodule

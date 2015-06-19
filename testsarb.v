@@ -26,18 +26,18 @@ module testsarb;
 
 	// Inputs
 	reg clk;
-	reg [16:0] fifo_have;
-	reg [271:0] datain;
+	wire [16:0] fifo_have;
+	wire [271:0] datain;
 	reg trig;
 
 	// Outputs
 	wire [16:0] arb_want;
 	reg [16:0] arb_old;
-	wire [4:0] debug;
 	wire [15:0] dataout;
 	wire kchar;
 	reg [8:0] cnt;
 	wire flag;
+	reg [8:0] trcnt = 0;
 	
 	// Instantiate the Unit Under Test (UUT)
 	snd_arb uut (
@@ -46,30 +46,43 @@ module testsarb;
 		.fifo_have(fifo_have), 
 		.datain(datain), 
 		.trig(trig), 
-		.debug(debug), 
 		.dataout(dataout), 
 		.kchar(kchar)
 	);
 
-/*	genvar i;
+	localparam blen = 4;	// number of words to treansmit -1
+	localparam [16:0] fsense = 17'h101;
+
+	assign flag = ((arb_want & fsense) != arb_old) & |(arb_want & fsense);
+	assign fifo_have = ((|cnt) | flag) ? (arb_want & fsense) : 0;
+
+	
+	genvar i;
 	generate 
 		begin: ggg
-			for (i=0; i<17; i=i+1) begin: fggg
-				assign ddd[16*i +: 16] = {flag, i[5:0], (flag) ? 9'h003 : cnt};
-			end
-		end
-   endgenerate */
-
-	assign flag = (arb_want != arb_old) & |arb_want;
-
-	integer i;
-	always @(posedge clk) begin
-		if (|arb_want) arb_old <= arb_want;
-		if (flag) cnt <= 0; else cnt <= cnt + 1;
-		fifo_have <= (cnt == 9'h004 && ~flag) ? 0 : arb_want;
 		for (i=0; i<17; i=i+1) begin: fggg
-			datain[16*i +: 16] <= {flag, i[5:0], (flag) ? 9'h003 : cnt};
+			assign datain[16*i +: 16] = {flag, i[5:0], (flag) ? blen[8:0] : cnt};
 		end
+		end
+   endgenerate
+
+
+	always @(posedge clk) begin
+		if (|(arb_want & fsense)) arb_old <= arb_want & fsense;
+		if (flag) begin
+			cnt <= blen; 
+		end else if (|cnt & |(arb_want & fsense)) begin
+			cnt <= cnt - 1;
+		end
+		// trig
+		trig <= 0;
+		if (|trcnt) begin
+			trcnt <= trcnt - 1;
+		end else begin
+			trig <= 1;
+			trcnt <= blen;
+		end
+		
 	end
 	
 	initial begin
