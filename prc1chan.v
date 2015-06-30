@@ -57,8 +57,10 @@ module prc1chan # (
 		input 				stmask,		// 1 bit mask for self trigger
 		input					invert,		// change waveform sign
 		input 				raw,			// test mode: no selftrigger, zero for summing, raw data on master trigger
-		// calculated baseline value for readout
-		output reg [ABITS-1:0] ped = 0,	// pedestal (baseline)
+		// pedestals
+		input					pedmode,		// pedestal mode: 0 - always calc and update, 1 - use small signal condition and change by 1
+		input					pedinh,		// disable pedestal update according to pedmode
+		output reg [ABITS-1:0] ped = 0,	// pedestal (baseline) for readout through WB pedarray
 		// trigger token
 		input [15:0] 		token,		// master trigger token as recieved by main FPGA and transmitted 
 												// through GTP: 0000 0enn nnnn nnnn
@@ -78,10 +80,13 @@ module prc1chan # (
    );
 
 	// pedestal calculations
-		localparam 					PBITS = 16;			// number of bits in pedestal window counter
+		localparam 					PBITS = 12;			// number of bits in pedestal window counter
+		localparam [ABITS-1:0]	pedrange = 5;		// inteval for small signal in pedmode=1
 		reg [PBITS+ABITS-1:0] 	pedsum = 0;			// sum for average
 		reg [PBITS-1:0] 			pedcnt = 0;			// ped window counter
-		reg [ABITS-1:0] 			ped_s = 0;			// averaged value, ADCCLK timed
+		reg [ABITS-1:0] 			ped_s = 0;			// currently calculated averaged value, ADCCLK timed
+		reg [ABITS-1:0] 			ped_c = 0;			// currently used averaged value, ADCCLK timed
+		reg [ABITS-1:0] 			ped_b = 0;			// currently used averaged value, clk timed
 		reg 							ped_pulse = 0;		// ped ready
 		reg [1:0] 					ped_pulse_d = 0;	// for CLK sync
 
@@ -152,20 +157,40 @@ module prc1chan # (
 	
 //		pedestal calculation
 	always @ (posedge ADCCLK) begin
-		if (&pedcnt) begin
-			pedcnt <= 0;
-			ped_s <= pedsum[PBITS+11:PBITS];
-			pedsum <= ADCDAT;
-		end else begin
-			pedcnt <= pedcnt + 1;
-			pedsum <= pedsum + ADCDAT;
+		if (~pedmode | ((ADCDAT > ped_s - pedrange) & (ADCDAT < ped_s + pedrange))) begin
+			if (&pedcnt) begin
+				// on full pedcnt, update calculated value
+				pedcnt <= 0;
+				pedsum <= ADCDAT;
+				if (~pedmode) begin
+					// Full update with new value
+					ped_s <= pedsum[PBITS+11:PBITS];
+				end else begin
+					// increment or decrement
+					if (pedsum[PBITS+11:PBITS] > ped_s) begin
+						ped_s <= ped_s + 1;
+					end else if (pedsum[PBITS+11:PBITS] < ped_s) begin
+						ped_s <= ped_s - 1;
+					end
+				end
+			end else begin
+				pedcnt <= pedcnt + 1;
+				pedsum <= pedsum + ADCDAT;
+			end
+			if (~pedinh & (pedcnt == 0)) begin
+					// on zero pedcnt update used value if allowed
+					ped_c <= ped_s;
+			end
+			ped_pulse <= (pedcnt < 3) ? 1 : 0;
 		end
-		ped_pulse = (pedcnt < 3) ? 1 : 0;
 	end
 	//	do safe pedestal output
 	always @ (posedge clk) begin
 		ped_pulse_d <= {ped_pulse_d[0], ped_pulse};
-		if (ped_pulse_d == 2'b01) ped <= ped_s;
+		if (ped_pulse_d == 2'b01) begin
+			ped <= ped_s;
+			ped_b <= ped_c;
+		end
 	end
 
 // 	pedestal subtraction and inversion
@@ -173,9 +198,9 @@ module prc1chan # (
 		if (raw) begin
 			pdata <= {{(16-ABITS){1'b0}} ,ADCDAT};
 		end else if (invert) begin
-			pdata <= ped_s - ADCDAT;
+			pdata <= ped_c - ADCDAT;
 		end else begin
-			pdata <= ADCDAT - ped_s;
+			pdata <= ADCDAT - ped_c;
 		end
 	end
 
@@ -353,7 +378,7 @@ module prc1chan # (
 				trg_state <= ST_IDLE;
 			end else begin
 			// write pedestal value
-				tofifo = {{(16-ABITS){1'b0}}, ped};
+				tofifo = {{(16-ABITS){1'b0}}, ped_b};
 				f_waddr <= f_waddr + 1;
 				cb_raddr <= cb_raddr + 1;			// preincrement circular buffer read address
 				trg_state <= ST_STCOPY;
@@ -371,7 +396,7 @@ module prc1chan # (
 				cb_raddr <= cb_raddr + 1;
 				to_copy <= to_copy - 1;
 				if (to_copy == 1)	begin
-					f_blkend <= f_waddr;		// f_blkend now points to the end of the newly written block
+					f_blkend <= f_waddr + 1;		// f_blkend now points to the end of the newly written block
 					blkpar <= ~blkpar;
 					trg_state <= ST_TRGCLR;
 				end

@@ -33,6 +33,12 @@
 //	3:0 - pattern for ADC receiver checks
 //	6:4 - counter max = 2**(16 + 2*CSR[6:4]) for ADC receiver checks
 //	7   - check start - edge sensitive  (ready on read)
+//	12	 - ped mode: 0 - pedestals are calculated independently of signal level and calculated value is direcly used for subtraction
+//						 1 - pedestals are calculated only if the signal is different from the current value by 5 ADCU, current value
+//							  is changed by 1 ADCU only dependent on the difference sign
+//	13  - ped inhibit: 0 - current value (according to ped mode) is used as soon as it changes, 1 - current ped is fixed at the last
+//								value before setting this bit, but current calculated value can be read from ped array; selftrigger block
+//								always gives ped value, which is really currently in use.
 // 14  - enable sum64 history block on master trigger
 // 15  - raw mode: no selftrigger, nothing to sumcalc, raw data blocks on master trigger 
 //`
@@ -428,8 +434,10 @@ wire [79:0] dbg;
 			.stmask		(par_array[PAR_STMASK*16+i]),
 			.invert		(par_array[PAR_INVMASK*16+i]),
 			.raw			(CSR[15]),
-			// calculated baseline value for readout
-			.ped			(adc_ped[16*i+11:16*i]), 
+			// pedestal
+			.pedmode		(CSR[12]),						// pedestal mode
+			.pedinh		(CSR[13]),						// disable pedestal update
+			.ped			(adc_ped[16*i+11:16*i]), 	// pedestal for readout
 			// trigger token
 			.token		(gtp_data_o[15:0]),
 			.tok_vld		(~gtp_comma_o[0]),

@@ -54,7 +54,7 @@ module sumcalc # (
 	// local sum
 	wire signed [15:0] 	sum16;		// full local sum
 	wire signed [15:0] 	db_data;		// full local sum delayed
-	wire [255:0]		datac;			// corrected data
+	wire [255:0]			datac;		// corrected data
 	
 	// master trigger 
 	reg signed [17:0]		sum64;		// sum of 4 X's
@@ -65,7 +65,7 @@ module sumcalc # (
 	generate
 		for (i=0; i<16; i = i + 1) begin: GMULT
 			normmult UMULT (
-				.clk	(CLK125),
+				.clk	(clk),
 				.din	(data[16*i+15:16*i]),
 				.dout	(datac[16*i+15:16*i]),
 				.coef	(coef[16*i+15:16*i])
@@ -101,9 +101,9 @@ module sumcalc # (
 	
 //		Master trigger
 	always @ (posedge clk) begin
-		sum64 <= db_data + $signed((~xcomma[0]) ? xdata[15:0] : 0) + 
-					$signed((~xcomma[1]) ? xdata[31:16] : 0) + 
-					$signed((~xcomma[2]) ? xdata[47:32] : 0);
+		sum64 <= db_data + $signed((~xcomma[0]) ? xdata[15:0] : 16'h0000) + 
+					$signed((~xcomma[1]) ? xdata[31:16] : 16'h0000) + 
+					$signed((~xcomma[2]) ? xdata[47:32] : 16'h0000);
 		trigout <= 0;		// default
 		if (sum64 > $signed({2'b00, s64thr})) begin
 			// generate trigger when sum exceeds threshold
@@ -111,7 +111,7 @@ module sumcalc # (
 			if (!trigout_s) begin
 				trigout <= 1;				// one clk pulse
 			end
-		end else if (sum64 <= $signed({3'b000, s64thr[14:0]})) begin
+		end else if (sum64 <= $signed({3'b000, s64thr[15:1]})) begin
 			// ready for new trigger when sum below half threshold
 			trigout_s <= 0;
 		end
@@ -122,7 +122,7 @@ module sumcalc # (
 		.FBITS(FBITS)
 	) UHIST (
 		.clk		(clk),		// master clock
-		.data		(sum64),	// input data - sum of 64 channels
+		.data		(sum64[17:2]),	// input data - sum of 64 channels
 		.winbeg		(winbeg),	// trigger history window begin
 		.winlen		(winlen),	// trigger history window length
 		// communication to sending arbitter

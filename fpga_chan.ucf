@@ -208,4 +208,5 @@ NET "ACD<1>" TNM_NET = ACD<1>;
 TIMESPEC TS_ACD_1_ = PERIOD "ACD<1>" 2.6 ns HIGH 50%;
 
 NET "reg_array/register_0<*>" TIG;
+NET "UCOEF/register_0<*>" TIG;
 NET "URCV[*].ADCRCV/trigout" TIG;

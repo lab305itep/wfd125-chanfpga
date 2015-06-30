@@ -55,7 +55,7 @@ module snd_arb #(
 
 	// RR arbitration
 	assign	fifohave = |fifo_have;
-	assign	nextf = ((towrite == 2) & ~kchar) | ((towrite == 1) & kchar);
+	assign	nextf = ((towrite == 2) & ~kchar) | ((towrite == 1) & kchar);		// ~trig assumed in both terms
 
 	always @ (posedge clk) begin
 		err_undr <= 0;
