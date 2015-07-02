@@ -102,6 +102,7 @@ module prc1chan # (
 		reg [CBITS-1:0] 		mtr_addr = 0;			// write address at master trigger start, ADCCLK timed
 
 	// self trigger & prescale 
+		reg						inh = 1;					// inhibit, relatched to ADCCLK
 		reg 						discr = 0;				// signal above selftrigger threshold
 		reg 						strig = 0;				// self trigger
 		reg						strig_c = 0;			// self trigger reclocked to clk
@@ -222,7 +223,8 @@ module prc1chan # (
 
 //		self trigger & prescale 
 	always @ (posedge ADCCLK) begin
-		if (~stmask & ~raw & ~inhibit) begin
+		inh <= inhibit;		// relatch inhibit to ADCCLK
+		if (~stmask & ~raw & ~inh) begin
 			if (pdata > $signed({1'b0,sthr})) begin
 				if (~discr) begin
 					// crossing threshold (for the first time)
