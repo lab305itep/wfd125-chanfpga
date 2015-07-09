@@ -35,7 +35,8 @@
 module prc1chan # (
 		parameter ABITS = 12,			// width of ADC data
 		parameter CBITS = 10,			// number of bits in circular buffer memory
-		parameter FBITS = 11				// number of bits in output fifo memory
+		parameter FBITS = 11,			// number of bits in output fifo memory
+		parameter STDELAY = 50			// writing state machine sees self trigger after this number of clk
 		)
 		(
 		input 				clk,			// 125MHz GTP and output data clock
@@ -75,9 +76,12 @@ module prc1chan # (
 		output 				have,			// acknowledge to arbitter, immediate with give
 		output [15:0] 		dout,			// tristate data to arbitter
 		output reg			missed,		// 1 clk pulse when fifo cannot accept data because of full
+output [1:0] debug,
 		// to sumtrig
 		output reg [15:0] d2sum			// (ADC - pedestal) signed to trigger summation
    );
+
+assign debug = {mtrig_c, strig_c};
 
 	// pedestal calculations
 		localparam 					PBITS = 12;			// number of bits in pedestal window counter
@@ -85,6 +89,7 @@ module prc1chan # (
 		reg [PBITS+ABITS-1:0] 	pedsum = 0;			// sum for average
 		reg [PBITS-1:0] 			pedcnt = 0;			// ped window counter
 		reg [ABITS-1:0] 			ped_s = 0;			// currently calculated averaged value, ADCCLK timed
+		wire [ABITS-1:0] 			ped_s_m1 = ped_s - 1'b1;	// currently calculated averaged value minus 1, ADCCLK timed
 		reg [ABITS-1:0] 			ped_c = 0;			// currently used averaged value, ADCCLK timed
 		reg [ABITS-1:0] 			ped_b = 0;			// currently used averaged value, clk timed
 		reg 							ped_pulse = 0;		// ped ready
@@ -104,8 +109,9 @@ module prc1chan # (
 	// self trigger & prescale 
 		reg						inh = 1;					// inhibit, relatched to ADCCLK
 		reg 						discr = 0;				// signal above selftrigger threshold
-		reg 						strig = 0;				// self trigger
-		reg						strig_c = 0;			// self trigger reclocked to clk
+		reg 						strig = 0;				// self trigger ADCCLK timed
+		reg [STDELAY-1:0]		strig_del;				// shift register to delay self trigger
+		reg						strig_c = 0;			// self trigger delayed, clk timed
 		reg [9:0]				strig_cnt = 0;			// self trigger counter after prescale
 		reg [9:0]				strig_cnt_c = 0;		// self trigger counter after prescale reclocked to clk
 		reg [15:0] 				presc_cnt = 0;			// selftrigger prescale counter
@@ -136,18 +142,21 @@ module prc1chan # (
 		localparam ST_MTIME  = 2;
 		localparam ST_MTCOPY = 3;
 		localparam ST_MTOK	= 4;
-		localparam ST_STRIG  = 5;
-		localparam ST_STPED	= 6;
-		localparam ST_STCOPY = 7;
-		localparam ST_TRGCLR	= 8;
+		localparam ST_MTCLR	= 5;
+		localparam ST_STRIG  = 6;
+		localparam ST_STPED	= 7;
+		localparam ST_STCOPY = 8;
+		localparam ST_STCLR	= 9;
 
 		reg [3:0] 				trg_state = ST_IDLE;	// state
 		reg [8:0] 				to_copy = 0;			// number of words from CB left for copying
 		reg [8:0] 				blklen;					// block length derived from winlen
 		reg 						zflag = 0;				// flag to apply zero suppression to the current block
 		reg						blkpar = 0;				// sequential parity of any sent block
-		reg						trg_clr;					// flag to indicate end of trigger block writing
-		reg						trg_clr_a;				// flag to indicate end of trigger block writing reclocked to ADCCLK
+		reg						mtrg_clr;				// flag to indicate end of master trigger block writing
+		reg						mtrg_clr_a;				// flag to indicate end of master trigger block writing reclocked to ADCCLK
+		reg						strg_clr;				// flag to indicate end of self trigger block writing
+		reg						strg_clr_a;				// flag to indicate end of self trigger block writing reclocked to ADCCLK
 
 	// 4 word circular buffer to resync ADC data (ped subtracted) to clk for trigger sum calculations
 		reg [15:0] 			d2sumfifo [3:0];			//	buffer itself
@@ -156,7 +165,7 @@ module prc1chan # (
 		reg 					d2sum_arst = 0;			// sync as generated at ADCCLK
 		reg 					d2sum_arst_d = 0;			// sync as felt at clk
 	
-//		pedestal calculation
+//		pedestal calculation (round rather than truncate to avoid average buildup in summing)
 	always @ (posedge ADCCLK) begin
 		if (~pedmode | ((ADCDAT > ped_s - pedrange) & (ADCDAT < ped_s + pedrange))) begin
 			if (&pedcnt) begin
@@ -164,13 +173,17 @@ module prc1chan # (
 				pedcnt <= 0;
 				pedsum <= ADCDAT;
 				if (~pedmode) begin
-					// Full update with new value
-					ped_s <= pedsum[PBITS+11:PBITS];
+					// Full update with new value (round rather than truncate)
+					if (pedsum[PBITS-1]) begin
+						ped_s <= pedsum[PBITS+ABITS-1:PBITS] + 1;
+					end else begin
+						ped_s <= pedsum[PBITS+ABITS-1:PBITS];
+					end
 				end else begin
-					// increment or decrement
-					if (pedsum[PBITS+11:PBITS] > ped_s) begin
+					// increment if greater than (ped_s + 0.5) or decrement if less than (ped_s - 0.5)
+					if (pedsum[PBITS+ABITS-1:PBITS-1] > {ped_s, 1'b0}) begin
 						ped_s <= ped_s + 1;
-					end else if (pedsum[PBITS+11:PBITS] < ped_s) begin
+					end else if (pedsum[PBITS+ABITS-1:PBITS-1] < {ped_s_m1, 1'b1}) begin
 						ped_s <= ped_s - 1;
 					end
 				end
@@ -216,9 +229,10 @@ module prc1chan # (
 		cb_data <= cbuf[cb_raddr];
 	end
 
-// reclock trigger end
+// reclock trigger ends
 	always @ (posedge ADCCLK) begin
-		trg_clr_a <= trg_clr;
+		mtrg_clr_a <= mtrg_clr;
+		strg_clr_a <= strg_clr;
 	end
 
 //		self trigger & prescale 
@@ -244,7 +258,7 @@ module prc1chan # (
 				// HALF threshold crossed back (noise reduction)
 				discr <= 0;
 				// finish with trigger on command from state machine
-				if (trg_clr_a) strig <= 0;
+				if (strg_clr_a) strig <= 0;
 			end 
 		end else begin
 			strig <= 0;
@@ -258,7 +272,7 @@ module prc1chan # (
 			mtrig <= 1;
 			mtr_addr <= cb_waddr;
 			tr_time <= trig_time;
-		end else if (trg_clr_a) begin
+		end else if (mtrg_clr_a) begin
 			// finish with trigger on command from state machine after token is accepted
 			mtrig <= 0;
 		end
@@ -283,12 +297,14 @@ module prc1chan # (
 
 	// state machine
 	always @ (posedge clk) begin
-		trg_clr <= 0;		// default
+		strg_clr <= 0;		// default
+		mtrg_clr <= 0;		// default
 		missed <= 0;		// default
-		blklen <= winlen + 2;	// relatch for better timing
+		blklen <= winlen + 2;		// relatch for better timing
 		tofifo = 0;
 		mtrig_c <= mtrig;				// reclock master trigger
-		strig_c <= strig;				// reclock self trigger
+		strig_del <= {strig, strig_del[STDELAY-1:1]};	// shift selftrigger for delay
+		strig_c <= strig_del[0] & strig_del[STDELAY-1];	// sense strig high after delay, but low -- immediately
 		tr_time_c <= tr_time;		// reclock trigger time
 		strig_cnt_c <= strig_cnt;	// reclock self trigger number
 //		state machine
@@ -298,7 +314,11 @@ module prc1chan # (
 				if (~fifo_full) begin
 					// write nothing on zero winlen
 					if (~|winlen) begin
-						trg_state <= ST_TRGCLR;
+						if (mtrig_c) begin
+							trg_state <= ST_MTCLR;
+						end else begin
+							trg_state <= ST_STCLR;
+						end
 					end else begin
 					// we can write to fifo, write CW
 						tofifo = {1'b1, num, blklen};
@@ -313,7 +333,11 @@ module prc1chan # (
 				end else begin
 					// we can't write to fifo -- just finish the trigger
 					missed <= 1;
-					trg_state <= ST_TRGCLR;
+					if (mtrig_c) begin
+						trg_state <= ST_MTCLR;
+					end else begin
+						trg_state <= ST_STCLR;
+					end
 				end
 			end
 		end
@@ -350,15 +374,21 @@ module prc1chan # (
 			if (zflag) begin
 				// if zero suppression happens, restore write pointer to the beg of block and finish with trigger
 				f_waddr <= f_blkend;
-				trg_state <= ST_TRGCLR;
+				trg_state <= ST_MTCLR;
 			end else if (tok_got) begin
 				// no ZS -- wait for token, write it to proper place and update block end pointer
 				tofifo = {2'b00, raw, 1'b1, blkpar, tr_tok};
 				f_waddr <= f_waddr_s;			// restore waddr to the first empty word
 				f_blkend <= f_waddr_s;			// f_blkend now points to the end of the newly written block
 				blkpar <= ~blkpar;
-				trg_state <= ST_TRGCLR;
+				trg_state <= ST_MTCLR;
 			end
+		end
+		ST_MTCLR: begin		// we can appear here with slftrigger not finished, clear both and wait for both to be cleared
+			mtrg_clr <= 1;
+			if (strig_c) strg_clr <= 1;
+			if (~mtrig_c | ~strig_c)
+				trg_state <= ST_IDLE;
 		end
 		ST_STRIG: begin
 			if (mtrig_c) begin
@@ -400,13 +430,13 @@ module prc1chan # (
 				if (to_copy == 1)	begin
 					f_blkend <= f_waddr + 1;		// f_blkend now points to the end of the newly written block
 					blkpar <= ~blkpar;
-					trg_state <= ST_TRGCLR;
+					trg_state <= ST_STCLR;
 				end
 			end
 		end
-		ST_TRGCLR: begin
-			trg_clr <= 1;
-			if (~mtrig_c & ~strig_c)
+		ST_STCLR: begin		// we go to idle if we recieve master trigger or finish with self trigger
+			strg_clr <= 1;
+			if (mtrig_c | ~strig_c)
 				trg_state <= ST_IDLE;
 		end
 		default: trg_state <= ST_IDLE;

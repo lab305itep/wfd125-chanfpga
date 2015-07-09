@@ -17,7 +17,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module sumcalc # (
-		parameter		DBITS		= 5,	// number of bits in delay line addr
+		parameter		DBITS		= 5,	// number of bits in delay line addr, need at least 5 for numbers as large as 23
 		parameter		CBITS		= 10,	// number of bits in the circular buffer addr
 		parameter		FBITS		= 11	// number of bits in output fifo addr
 	)

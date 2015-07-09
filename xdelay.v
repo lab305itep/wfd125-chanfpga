@@ -19,7 +19,7 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module xdelay #(
-		parameter		DBITS		= 5	// number of bits in delay line addr
+		parameter		DBITS		= 5	// number of bits in delay line addr, need at least 5 for numbers as large as 23
 		)(
 		input [15:0] din,
 		output reg [15:0] dout,

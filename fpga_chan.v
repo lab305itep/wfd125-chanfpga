@@ -409,7 +409,7 @@ module fpga_chan(
 	assign ICX[10:7] = adc_trig;
 
 // ????
-wire [79:0] dbg;
+wire [32:0] dbg;
 
 //		channel processing
 	generate
@@ -452,6 +452,7 @@ wire [79:0] dbg;
 			.dout			(d2arb[16*i+15:16*i]), 
 			.missed		(fifo_missed[i]),
 			// to sumtrig
+.debug(dbg[2*i+1:2*i]),
 			.d2sum		(d2sum[16*i+15:16*i])
 		);		
 		assign adc_ped[16*i+15:16*i+12] = 0;
@@ -492,7 +493,7 @@ wire [79:0] dbg;
 		.sumcomma	(comma2gtp),												// comma / data to other X's
 		// programmable parameters
 		.s64thr		(par_array[PAR_SUTHR*16+15:PAR_SUTHR*16]),		// 64-channel sum threshold
-		.xdelay		(par_array[PAR_SUDELAY*16+3:PAR_SUDELAY*16]),	// delay of local sum to be added to other X's
+		.xdelay		(par_array[PAR_SUDELAY*16+4:PAR_SUDELAY*16]),	// delay of local sum to be added to other X's (5 bits)
 		.winbeg		(par_array[PAR_SUWINBEG*16+9:PAR_SUWINBEG*16]),	// trigger history window begin
 		.winlen		(par_array[PAR_WINLEN*16+8:PAR_WINLEN*16]), 		// trigger history window length
 		.coef			(coef_array),												// per channel coefficients for trigger
@@ -519,5 +520,5 @@ wire [79:0] dbg;
 	);
 
 //		Test points
-	assign TP = 0;
+	assign TP = {3'b0, dbg[1:0]};
 endmodule
