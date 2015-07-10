@@ -36,7 +36,8 @@ module prc1chan # (
 		parameter ABITS = 12,			// width of ADC data
 		parameter CBITS = 10,			// number of bits in circular buffer memory
 		parameter FBITS = 11,			// number of bits in output fifo memory
-		parameter STDELAY = 50			// writing state machine sees self trigger after this number of clk
+		parameter STDELAY = 50,			// writing state machine sees self trigger after this number of clk
+		parameter STDBITS = 6			// must correspond to STDELAY
 		)
 		(
 		input 				clk,			// 125MHz GTP and output data clock
@@ -110,7 +111,7 @@ assign debug = {mtrig_c, strig_c};
 		reg						inh = 1;					// inhibit, relatched to ADCCLK
 		reg 						discr = 0;				// signal above selftrigger threshold
 		reg 						strig = 0;				// self trigger ADCCLK timed
-		reg [STDELAY-1:0]		strig_del;				// shift register to delay self trigger
+		reg [STDBITS-1:0]		strig_del;				// counter for selftrigger delay
 		reg						strig_c = 0;			// self trigger delayed, clk timed
 		reg [9:0]				strig_cnt = 0;			// self trigger counter after prescale
 		reg [9:0]				strig_cnt_c = 0;		// self trigger counter after prescale reclocked to clk
@@ -143,10 +144,11 @@ assign debug = {mtrig_c, strig_c};
 		localparam ST_MTCOPY = 3;
 		localparam ST_MTOK	= 4;
 		localparam ST_MTCLR	= 5;
-		localparam ST_STRIG  = 6;
-		localparam ST_STPED	= 7;
-		localparam ST_STCOPY = 8;
-		localparam ST_STCLR	= 9;
+		localparam ST_STDEL  = 6;
+		localparam ST_STRIG  = 7;
+		localparam ST_STPED	= 8;
+		localparam ST_STCOPY = 9;
+		localparam ST_STCLR	= 10;
 
 		reg [3:0] 				trg_state = ST_IDLE;	// state
 		reg [8:0] 				to_copy = 0;			// number of words from CB left for copying
@@ -303,42 +305,32 @@ assign debug = {mtrig_c, strig_c};
 		blklen <= winlen + 2;		// relatch for better timing
 		tofifo = 0;
 		mtrig_c <= mtrig;				// reclock master trigger
-		strig_del <= {strig, strig_del[STDELAY-1:1]};	// shift selftrigger for delay
-		strig_c <= strig_del[0] & strig_del[STDELAY-1];	// sense strig high after delay, but low -- immediately
+		strig_c <= strig;				// reclock self trigger
 		tr_time_c <= tr_time;		// reclock trigger time
 		strig_cnt_c <= strig_cnt;	// reclock self trigger number
 //		state machine
 		case (trg_state) 
 		ST_IDLE: begin 
-			if (mtrig_c | strig_c) begin
+			if (mtrig_c) begin
 				if (~fifo_full) begin
 					// write nothing on zero winlen
 					if (~|winlen) begin
-						if (mtrig_c) begin
-							trg_state <= ST_MTCLR;
-						end else begin
-							trg_state <= ST_STCLR;
-						end
+						trg_state <= ST_MTCLR;
 					end else begin
 					// we can write to fifo, write CW
 						tofifo = {1'b1, num, blklen};
 						f_waddr <= f_waddr + 1;
 						to_copy <= winlen;
-						if (mtrig_c) begin		// master trigger has priority
-							trg_state <= ST_MTRIG;
-						end else	begin // strig
-							trg_state <= ST_STRIG;
-						end
+						trg_state <= ST_MTRIG;
 					end
 				end else begin
 					// we can't write to fifo -- just finish the trigger
 					missed <= 1;
-					if (mtrig_c) begin
-						trg_state <= ST_MTCLR;
-					end else begin
-						trg_state <= ST_STCLR;
-					end
+					trg_state <= ST_MTCLR;
 				end
+			end else if (strig_c) begin
+				strig_del <= STDELAY;
+				trg_state <= ST_STDEL;
 			end
 		end
 		ST_MTRIG: begin
@@ -387,8 +379,34 @@ assign debug = {mtrig_c, strig_c};
 		ST_MTCLR: begin		// we can appear here with slftrigger not finished, clear both and wait for both to be cleared
 			mtrg_clr <= 1;
 			if (strig_c) strg_clr <= 1;
-			if (~mtrig_c | ~strig_c)
+			if (~mtrig_c & ~strig_c)
 				trg_state <= ST_IDLE;
+		end
+		ST_STDEL: begin
+			if (mtrig_c) begin		// catch master trigger
+				trg_state <= ST_IDLE;
+			end else begin
+				if (|strig_del) begin	// just wait
+					strig_del <= strig_del - 1'b1;
+				end else begin				// start selftrigger record
+					if (~fifo_full) begin
+						// write nothing on zero winlen
+						if (~|winlen) begin
+							trg_state <= ST_STCLR;
+						end else begin
+							// we can write to fifo, write CW
+							tofifo = {1'b1, num, blklen};
+							f_waddr <= f_waddr + 1;
+							to_copy <= winlen;
+							trg_state <= ST_STRIG;
+						end
+					end else begin
+						// we can't write to fifo -- just finish the trigger
+						missed <= 1;
+						trg_state <= ST_STCLR;
+					end
+				end
+			end
 		end
 		ST_STRIG: begin
 			if (mtrig_c) begin
