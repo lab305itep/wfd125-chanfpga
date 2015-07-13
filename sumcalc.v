@@ -122,7 +122,7 @@ module sumcalc # (
 		.FBITS(FBITS)
 	) UHIST (
 		.clk		(clk),		// master clock
-		.data		(sum64[17:2]),	// input data - sum of 64 channels
+		.data		(sum64[17:3]),	// input data - sum of 64 channels, ignore 3 LSB
 		.winbeg		(winbeg),	// trigger history window begin
 		.winlen		(winlen),	// trigger history window length
 		// communication to sending arbitter

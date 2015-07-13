@@ -19,7 +19,7 @@
 //		Blocks sent to arbitter 
 //	0	1CC0 000L LLLL LLLL - CC - 2-bit Xilinx number which produced the block ; 
 //									 LLLLLLLLL - 9-bit block length in 16-bit words not including CW, L = WinLen + 2
-// 	1	0ttt penn nnnn nnnn - ttt - trigger block type (4 - trigger history) ;
+// 1	0ttt penn nnnn nnnn - ttt - trigger block type (4 - trigger history) ;
 //									 n - master : 10-bit trigger token from gtp, e - token error (as recieved by main FPGA)
 //									 p - sent block sequential number LSB, independently on master/self
 //	2	0000 0000 0000 0000 - not used
@@ -31,7 +31,7 @@ module trghist # (
 		parameter		FBITS		= 11	// number of bits in output fifo addr
 	) (
 		input 				clk,		// master clock
-		input [15:0] 		data,		// input data - sum of 64 channels
+		input [14:0] 		data,		// input data - sum of 64 channels
 		input [CBITS-1:0]	winbeg,	// trigger history window begin
 		input [8:0]			winlen,	// trigger history window length
 		// communication to sending arbitter
@@ -82,7 +82,7 @@ module trghist # (
 
 	always @ (posedge clk) begin
 //		circular buffer for trigger history
-		cbuf[cb_waddr] <= data[15:1];	// ignore LSB
+		cbuf[cb_waddr] <= data;		// 15 bit only
 		cb_waddr <= cb_waddr + 1;
 		cb_data <= cbuf[cb_raddr];
 //		fifo		
