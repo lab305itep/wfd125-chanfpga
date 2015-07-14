@@ -353,7 +353,7 @@ assign debug = {mtrig_c, strig_c};
 			f_waddr <= f_waddr + 1;
 			cb_raddr <= cb_raddr + 1;
 			to_copy <= to_copy - 1;
-			if (($signed(cb_data) > $signed({1'b0, zthr})) 
+			if (($signed(cb_data) >= $signed({1'b0, zthr})) 
 				& (winlen - to_copy >= zbeg) 
 				& (winlen - to_copy < zend)) zflag <= 0;	// remove ZS flag if signal is above threshold
 			if (to_copy == 1)	begin
