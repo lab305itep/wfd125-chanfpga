@@ -29,6 +29,12 @@ module testmult;
 	reg clk;
 	reg [15:0] coef;
 
+	reg [2:0] d2sum_waddr;
+	reg [2:0] d2sum_raddr;
+	reg ADCCLK;
+	reg d2sum_arst;
+	reg d2sum_arst_d;
+
 	// Outputs
 	wire [15:0] dout;
 
@@ -46,6 +52,12 @@ module testmult;
 		clk = 0;
 		coef = 16'h8000;
 
+		d2sum_waddr = 0;
+		d2sum_raddr = 0;
+		ADCCLK = 0;
+		d2sum_arst = 0;
+		d2sum_arst_d = 0;
+
 		// Wait 100 ns for global reset to finish
 		#100;
         
@@ -54,8 +66,22 @@ module testmult;
 	end
       
 	always @ (*) #4 clk <= !clk;
+	always @ (*) #3.9 ADCCLK <= !ADCCLK;
 	
 	always @(posedge clk) din <= -2 * din + 1;
+	
+	//		to total sum -- resync adc data to clk
+	// fill buffer at ADFCCLK
+	always @ (posedge ADCCLK) begin
+		// send zero if masked or raw data requested
+		d2sum_waddr <= d2sum_waddr + 1;
+		d2sum_arst <= (d2sum_waddr == 0) ? 1 : 0;
+	end
+	// read buffer at clk
+	always @ (posedge clk) begin
+		d2sum_arst_d <= d2sum_arst;
+		d2sum_raddr <= (d2sum_arst_d) ? 0 : d2sum_raddr + 1;
+	end
 	
 endmodule
 

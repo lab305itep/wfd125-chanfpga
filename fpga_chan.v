@@ -17,10 +17,13 @@
 // Revision 0.01 - File Created
 // Additional Comments: 
 //  	ICX usage:
+//	 0,1 - master drigger (differential)
 //  2  - XSPI frame
 //  3  - XSPI data
 //  4  - XSPI clock
 //  5  - WB reset
+//	 6  - inhibit
+//  7  - test pulse
 //		GTP channel usage
 //		Output:
 //	 0 - sending data blocks, commas as spacer, K-char (not comma) if total sum is above the trigger threshold. 
@@ -33,6 +36,7 @@
 //	3:0 - pattern for ADC receiver checks
 //	6:4 - counter max = 2**(16 + 2*CSR[6:4]) for ADC receiver checks
 //	7   - check start - edge sensitive  (ready on read)
+// 11  - test mode - do short pulses on testpulses (ICX[7])
 //	12	 - ped mode: 0 - pedestals are calculated independently of signal level and calculated value is direcly used for subtraction
 //						 1 - pedestals are calculated only if the signal is different from the current value by 5 ADCU, current value
 //							  is changed by 1 ADCU only dependent on the difference sign
@@ -406,8 +410,6 @@ module fpga_chan(
 		end
 	endgenerate
 	
-	assign ICX[10:7] = adc_trig;
-
 // ????
 wire [32:0] dbg;
 
@@ -453,7 +455,9 @@ wire [32:0] dbg;
 			.missed		(fifo_missed[i]),
 			// to sumtrig
 .debug(dbg[2*i+1:2*i]),
-			.d2sum		(d2sum[16*i+15:16*i])
+			.d2sum		(d2sum[16*i+15:16*i]),
+			.testmode	(CSR[11]),
+			.testpulse	(ICX[7])
 		);		
 		assign adc_ped[16*i+15:16*i+12] = 0;
 		end

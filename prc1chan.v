@@ -79,7 +79,9 @@ module prc1chan # (
 		output reg			missed,		// 1 clk pulse when fifo cannot accept data because of full
 output [1:0] debug,
 		// to sumtrig
-		output reg [15:0] d2sum			// (ADC - pedestal) signed to trigger summation
+		output reg [15:0] d2sum,		// (ADC - pedestal) signed to trigger summation
+		input					testmode,	// Select test mode
+		input					testpulse	// do test pulse on the leading edge
    );
 
 assign debug = {mtrig_c, strig_c};
@@ -161,11 +163,13 @@ assign debug = {mtrig_c, strig_c};
 		reg						strg_clr_a;				// flag to indicate end of self trigger block writing reclocked to ADCCLK
 
 	// 4 word circular buffer to resync ADC data (ped subtracted) to clk for trigger sum calculations
-		reg [15:0] 			d2sumfifo [3:0];			//	buffer itself
-		reg [1:0] 			d2sum_waddr = 0;			// write address
-		reg [1:0] 			d2sum_raddr = 2;			// read address
+		reg [15:0] 			d2sumfifo [7:0];			//	buffer itself
+		reg [2:0] 			d2sum_waddr = 0;			// write address
+		reg [2:0] 			d2sum_raddr = 2;			// read address
 		reg 					d2sum_arst = 0;			// sync as generated at ADCCLK
 		reg 					d2sum_arst_d = 0;			// sync as felt at clk
+	// test mode support
+		reg [1:0]			testp = 0;
 	
 //		pedestal calculation (round rather than truncate to avoid average buildup in summing)
 	always @ (posedge ADCCLK) begin
@@ -210,14 +214,18 @@ assign debug = {mtrig_c, strig_c};
 	end
 
 // 	pedestal subtraction and inversion
+//		test pulse processing
 	always @ (posedge ADCCLK) begin
-		if (raw) begin
+		if (testmode) begin
+			pdata <= (testp == 2'b01) ? 256 : 0;
+		end else if (raw) begin
 			pdata <= {{(16-ABITS){1'b0}} ,ADCDAT};
 		end else if (invert) begin
 			pdata <= ped_c - ADCDAT;
 		end else begin
 			pdata <= ADCDAT - ped_c;
 		end
+		testp <= {testp[0], testpulse};
 	end
 
 //		circular memory buffer
