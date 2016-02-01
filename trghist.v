@@ -61,7 +61,7 @@ module trghist # (
 	reg [FBITS-1:0]		f_raddr = 0;			// read address	
 
 	reg 						mtrig_c	= 0;			// master trigger clocked to clk
-	wire 						fifo_free;
+	wire [10:0]				fifo_free;
 	wire						fifo_full;
 	reg [8:0]				blklen;
 	reg [8:0]				to_copy;
